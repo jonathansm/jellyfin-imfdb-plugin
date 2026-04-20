@@ -1,32 +1,49 @@
 # Jellyfin IMFDB
 
+> Disclaimer: this project is vibecoded. It works for the author's current use case, but it should be treated as an experimental community plugin rather than a polished official Jellyfin integration.
+
 Jellyfin IMFDB is a Jellyfin server plugin that looks up movies and series in IMFDB data and adds a firearm card row to Jellyfin Web by using the File Transformation plugin.
 
-## What It Does
+## Features
 
-- Adds a server API endpoint at `/Imfdb/Lookup?itemId=<jellyfin-item-guid>` for testing and integrations.
-- Uses the Jellyfin library item title, year, and IMDb provider id when available.
-- Searches IMFDB/IMFDB Browser for matching movie or TV entries.
-- Groups firearm appearances into card data by firearm name.
-- Registers a File Transformation for Jellyfin Web `index.html`.
-- Injects the bundled `/Imfdb/ClientScript` script from the server response.
+- Adds firearm cards to Jellyfin movie and series detail pages.
+- Shows firearm names, images where available, and basic firearm details.
+- Links each firearm back to the matching IMFDB title section when possible.
+- Uses Jellyfin item title, year, and IMDb provider id when available.
+- Adds a diagnostic API endpoint at `/Imfdb/Status`.
+- Adds a lookup API endpoint at `/Imfdb/Lookup?itemId=<jellyfin-item-guid>`.
 - Adds a dashboard configuration page for lookup and UI injection options.
 
-## File Transformation
+## Important Limitations
 
-This plugin relies on File Transformation to alter the Jellyfin Web HTML served by the server. That avoids browser extensions and avoids modifying Jellyfin Web files on disk, but it does still inject a small client script into Jellyfin Web so a new actor-style row can be rendered.
+This plugin depends on web scraping and unofficial public pages. IMFDB does not provide a stable first-party JSON API for all of the data this plugin needs. The plugin currently reads from IMFDB Browser pages and uses best-effort enrichment from public sources such as Wikipedia for firearm images and descriptions.
 
-Install File Transformation from:
+That means this plugin can break if:
+
+- IMFDB Browser changes its HTML structure.
+- IMFDB changes page names or section anchors.
+- The File Transformation plugin changes its registration API.
+- Jellyfin Web changes the DOM structure around movie, series, or actor sections.
+- Public detail/image sources change, rate-limit, or stop returning matching data.
+
+If a title has no IMFDB entry, the firearms row should stay hidden. If an entry exists but no firearm image/details can be found, the card may still appear with limited information.
+
+## Requirements
+
+- Jellyfin 10.11.x.
+- .NET 9 compatible Jellyfin plugin runtime.
+- Jellyfin Web hosted by the Jellyfin server.
+- File Transformation plugin.
+
+Install File Transformation from this repository:
 
 ```text
 https://www.iamparadox.dev/jellyfin/plugins/manifest.json
 ```
 
-After installing both plugins, restart Jellyfin and hard refresh Jellyfin Web. If File Transformation is not installed or is not loaded, the `/Imfdb/Lookup` API will still work, but the firearm row will not appear.
+## Installation
 
-## Install From A Jellyfin Repository
-
-Once this project is published to GitHub with GitHub Pages enabled, users can install it from a Jellyfin plugin repository URL:
+Add this plugin repository in Jellyfin:
 
 ```text
 https://jonathansm.github.io/jellyfin-imfdb-plugin/manifest.json
@@ -35,64 +52,60 @@ https://jonathansm.github.io/jellyfin-imfdb-plugin/manifest.json
 In Jellyfin:
 
 1. Go to Dashboard -> Plugins -> Repositories.
-2. Add the repository URL above.
-3. Go to Catalog.
-4. Install IMFDB.
-5. Restart Jellyfin.
+2. Add the File Transformation repository.
+3. Add the IMFDB repository.
+4. Go to Catalog.
+5. Install File Transformation.
+6. Install IMFDB.
+7. Restart Jellyfin.
+8. Hard refresh Jellyfin Web.
 
-This plugin also requires the File Transformation plugin repository:
+If File Transformation is not installed or is not loaded, the `/Imfdb/Lookup` API may still work, but the firearm row will not appear in Jellyfin Web.
+
+## Troubleshooting
+
+Open this URL on your Jellyfin server:
 
 ```text
-https://www.iamparadox.dev/jellyfin/plugins/manifest.json
+https://YOUR-JELLYFIN-SERVER/Imfdb/Status
 ```
 
-## Build
+Expected fields:
 
-This project targets Jellyfin 10.11.x and .NET 9:
+- `PluginEnabled`: IMFDB lookup is enabled.
+- `WebUiInjectionEnabled`: Jellyfin Web injection is enabled.
+- `FileTransformationRegistered`: the plugin successfully registered with File Transformation.
+- `FileTransformationStatus`: the most recent registration status.
+
+If the row does not appear:
+
+- Confirm File Transformation and IMFDB are both installed and enabled.
+- Fully restart Jellyfin, not just the web page.
+- Confirm `/Imfdb/Status` reports `FileTransformationRegistered: true`.
+- Open browser developer tools and check for `/Imfdb/ClientScript`.
+- Test with a known IMFDB-heavy movie such as `John Wick`, `Die Hard`, or `The Matrix`.
+
+## Development
+
+Build the plugin:
 
 ```bash
 dotnet publish Jellyfin.Plugin.Imfdb.sln -c Release
 ```
 
-Copy the publish output from `Jellyfin.Plugin.Imfdb/bin/Release/net9.0/publish/` into a Jellyfin plugin folder, then restart Jellyfin.
-
-## Package A Release Locally
+Package a release zip:
 
 ```bash
 ./scripts/package-plugin.sh 0.1.0.0
 ```
 
-This creates:
+The package script creates:
 
 ```text
 artifacts/jellyfin-plugin-imfdb_0.1.0.0.zip
 artifacts/jellyfin-plugin-imfdb_0.1.0.0.zip.md5
 ```
 
-## Publish A GitHub Release
+## License
 
-1. Push the repository to GitHub.
-2. Enable GitHub Pages for the `gh-pages` branch in the repository settings.
-3. Create and push a version tag:
-
-```bash
-git tag v0.1.0.0
-git push origin main --tags
-```
-
-The release workflow will:
-
-- build the plugin
-- upload a release zip and `.md5`
-- generate `manifest.json`
-- publish the manifest to the `gh-pages` branch
-
-Users then add this repository URL in Jellyfin:
-
-```text
-https://jonathansm.github.io/jellyfin-imfdb-plugin/manifest.json
-```
-
-## Development Status
-
-This is an initial implementation. IMFDB does not provide a stable first-party JSON API for every page, so the plugin uses the public IMFDB Browser pages where possible and falls back to MediaWiki search/parse behavior. Scraping can break if those pages change.
+GPL-3.0-only.
