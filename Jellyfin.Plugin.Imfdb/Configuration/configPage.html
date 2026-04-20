@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IMFDB</title>
+</head>
+<body>
+    <div id="ImfdbConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="ImfdbConfigForm">
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h2 class="sectionTitle">IMFDB</h2>
+                    </div>
+                    <p>Use this script URL with your Jellyfin Web JavaScript injection method:</p>
+                    <pre><code>&lt;script src="/Imfdb/ClientScript"&gt;&lt;/script&gt;</code></pre>
+                    <div class="inputContainer">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="EnableLookups" />
+                            <span>Enable IMFDB lookups</span>
+                        </label>
+                    </div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            (function () {
+                const pluginId = '0282b499-528f-4185-a301-0a0c333139a7';
+
+                document.querySelector('#ImfdbConfigPage')
+                    .addEventListener('pageshow', function () {
+                        Dashboard.showLoadingMsg();
+                        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                            document.querySelector('#EnableLookups').checked = config.EnableLookups !== false;
+                            Dashboard.hideLoadingMsg();
+                        });
+                    });
+
+                document.querySelector('#ImfdbConfigForm')
+                    .addEventListener('submit', function (event) {
+                        event.preventDefault();
+                        Dashboard.showLoadingMsg();
+                        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                            config.EnableLookups = document.querySelector('#EnableLookups').checked;
+                            ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
+                        });
+                    });
+            })();
+        </script>
+    </div>
+</body>
+</html>
+

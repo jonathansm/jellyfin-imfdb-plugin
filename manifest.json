@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "0282b499-528f-4185-a301-0a0c333139a7",
+    "name": "IMFDB",
+    "description": "Adds IMFDB firearm information for Jellyfin movies and shows.",
+    "overview": "Looks up firearms used in movies and TV shows from IMFDB and exposes a companion Jellyfin Web card row.",
+    "owner": "local",
+    "category": "Metadata",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "Initial plugin implementation.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "",
+        "checksum": "",
+        "timestamp": "2026-04-20T00:00:00Z"
+      }
+    ]
+  }
+]
+
