@@ -94,6 +94,7 @@ public class ImfdbController : ControllerBase
     /// </summary>
     /// <returns>Plugin diagnostics.</returns>
     [HttpGet("Status")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult Status()
     {
