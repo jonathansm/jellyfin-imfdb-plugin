@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.Imfdb.Services;
+using Jellyfin.Plugin.Imfdb.Web;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,6 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<IImfdbClient, ImfdbClient>();
-        serviceCollection.AddSingleton<ImfdbMetadataEnricher>();
+        serviceCollection.AddHostedService<FileTransformationRegistrationService>();
     }
 }

@@ -11,7 +11,7 @@
                     <div class="sectionTitleContainer flex align-items-center">
                         <h2 class="sectionTitle">IMFDB</h2>
                     </div>
-                    <p>IMFDB can enrich movie and series metadata during metadata refreshes. This uses normal Jellyfin fields, so no Jellyfin Web script injection is required.</p>
+                    <p>IMFDB can add a firearms row to Jellyfin Web using the File Transformation plugin. Install File Transformation, restart Jellyfin, then hard refresh Jellyfin Web.</p>
                     <div class="inputContainer">
                         <label>
                             <input is="emby-checkbox" type="checkbox" id="EnableLookups" />
@@ -20,19 +20,9 @@
                     </div>
                     <div class="inputContainer">
                         <label>
-                            <input is="emby-checkbox" type="checkbox" id="AddFirearmsToOverview" />
-                            <span>Add an IMFDB Firearms section to item overviews</span>
+                            <input is="emby-checkbox" type="checkbox" id="EnableWebUiInjection" />
+                            <span>Enable Jellyfin Web firearm row injection</span>
                         </label>
-                    </div>
-                    <div class="inputContainer">
-                        <label>
-                            <input is="emby-checkbox" type="checkbox" id="AddFirearmTags" />
-                            <span>Add searchable firearm tags</span>
-                        </label>
-                    </div>
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MaxFirearms">Maximum firearms per item</label>
-                        <input is="emby-input" type="number" min="1" max="100" id="MaxFirearms" />
                     </div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
@@ -49,9 +39,7 @@
                         Dashboard.showLoadingMsg();
                         ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                             document.querySelector('#EnableLookups').checked = config.EnableLookups !== false;
-                            document.querySelector('#AddFirearmsToOverview').checked = config.AddFirearmsToOverview !== false;
-                            document.querySelector('#AddFirearmTags').checked = config.AddFirearmTags === true;
-                            document.querySelector('#MaxFirearms').value = config.MaxFirearms || 20;
+                            document.querySelector('#EnableWebUiInjection').checked = config.EnableWebUiInjection !== false;
                             Dashboard.hideLoadingMsg();
                         });
                     });
@@ -62,9 +50,7 @@
                         Dashboard.showLoadingMsg();
                         ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                             config.EnableLookups = document.querySelector('#EnableLookups').checked;
-                            config.AddFirearmsToOverview = document.querySelector('#AddFirearmsToOverview').checked;
-                            config.AddFirearmTags = document.querySelector('#AddFirearmTags').checked;
-                            config.MaxFirearms = parseInt(document.querySelector('#MaxFirearms').value || '20', 10);
+                            config.EnableWebUiInjection = document.querySelector('#EnableWebUiInjection').checked;
                             ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
                         });
                     });

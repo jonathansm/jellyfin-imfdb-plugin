@@ -1,3 +1,4 @@
+using System.Reflection;
 using Jellyfin.Plugin.Imfdb.Models;
 using Jellyfin.Plugin.Imfdb.Services;
 using MediaBrowser.Controller.Library;
@@ -66,4 +67,24 @@ public class ImfdbController : ControllerBase
             firearms));
     }
 
+    /// <summary>
+    /// Returns the Jellyfin Web firearm row script.
+    /// </summary>
+    /// <returns>JavaScript content.</returns>
+    [HttpGet("ClientScript")]
+    [AllowAnonymous]
+    [Produces("application/javascript")]
+    public ActionResult ClientScript()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        const string resourceName = "Jellyfin.Plugin.Imfdb.Web.imfdbClient.js";
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream is null)
+        {
+            return NotFound();
+        }
+
+        using var reader = new StreamReader(stream);
+        return Content(reader.ReadToEnd(), "application/javascript");
+    }
 }
