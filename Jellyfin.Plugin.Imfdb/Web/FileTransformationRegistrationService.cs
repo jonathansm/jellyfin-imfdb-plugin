@@ -13,6 +13,9 @@ public class FileTransformationRegistrationService : IHostedService
     private static readonly Guid TransformationId = Guid.Parse("5c67db76-0120-4636-a557-6d74cdaac5a7");
     private static readonly string[] FileNamePatterns =
     {
+        "index.html",
+        "web/index.html",
+        "/web/index.html",
         "index\\.html$",
         "^index\\.html$",
         "web/index\\.html$",
