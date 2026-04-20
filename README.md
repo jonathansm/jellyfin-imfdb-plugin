@@ -29,7 +29,7 @@ After installing both plugins, restart Jellyfin and hard refresh Jellyfin Web. I
 Once this project is published to GitHub with GitHub Pages enabled, users can install it from a Jellyfin plugin repository URL:
 
 ```text
-https://YOUR_GITHUB_USERNAME.github.io/jellyfin-imfdb/manifest.json
+https://jonathansm.github.io/jellyfin-imfdb-plugin/manifest.json
 ```
 
 In Jellyfin:
@@ -71,10 +71,9 @@ artifacts/jellyfin-plugin-imfdb_0.1.0.0.zip.md5
 
 ## Publish A GitHub Release
 
-1. Replace `YOUR_GITHUB_USERNAME` in `Directory.Build.props`, `build.yaml`, and this README.
-2. Push the repository to GitHub.
-3. Enable GitHub Pages for the `gh-pages` branch in the repository settings.
-4. Create and push a version tag:
+1. Push the repository to GitHub.
+2. Enable GitHub Pages for the `gh-pages` branch in the repository settings.
+3. Create and push a version tag:
 
 ```bash
 git tag v0.1.0.0
@@ -91,7 +90,7 @@ The release workflow will:
 Users then add this repository URL in Jellyfin:
 
 ```text
-https://YOUR_GITHUB_USERNAME.github.io/jellyfin-imfdb/manifest.json
+https://jonathansm.github.io/jellyfin-imfdb-plugin/manifest.json
 ```
 
 ## Development Status

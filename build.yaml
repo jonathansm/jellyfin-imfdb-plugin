@@ -6,7 +6,7 @@ framework: "net9.0"
 overview: "Adds IMFDB firearm cards to Jellyfin movie and show pages."
 description: "Looks up firearms used in movies and TV shows from IMFDB and renders a Jellyfin Web firearm card row using File Transformation."
 category: "Metadata"
-owner: "YOUR_GITHUB_USERNAME"
+owner: "jonathansm"
 artifacts:
   - "Jellyfin.Plugin.Imfdb.dll"
   - "Jellyfin.Plugin.Imfdb.xml"
