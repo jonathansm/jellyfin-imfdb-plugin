@@ -85,9 +85,7 @@ public partial class ImfdbClient : IImfdbClient
     {
         var candidates = new[]
         {
-            $"media?q={Uri.EscapeDataString(title)}",
-            $"media?search={Uri.EscapeDataString(title)}",
-            $"media?query={Uri.EscapeDataString(title)}"
+            $"media?q={Uri.EscapeDataString(title)}"
         };
 
         foreach (var path in candidates)
