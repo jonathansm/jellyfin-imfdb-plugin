@@ -77,10 +77,11 @@
                 color: inherit;
                 cursor: pointer;
                 flex: 0 0 14.5em;
-                min-height: 8.25em;
-                padding: .9em;
+                min-height: 13.25em;
+                overflow: hidden;
+                padding: 0;
                 scroll-snap-align: start;
-                text-align: left;
+                text-align: center;
             }
             #${rowId} .imfdb-card:hover,
             #${rowId} .imfdb-card:focus {
@@ -93,16 +94,24 @@
                 font-size: 1.05em;
                 font-weight: 700;
                 line-height: 1.25;
-                margin-bottom: .45em;
+                padding: .8em .85em .95em;
             }
-            #${rowId} .imfdb-summary {
-                display: -webkit-box;
-                font-size: .9em;
-                line-height: 1.35;
-                opacity: .78;
-                overflow: hidden;
-                -webkit-box-orient: vertical;
-                -webkit-line-clamp: 3;
+            #${rowId} .imfdb-image {
+                align-items: center;
+                aspect-ratio: 4 / 3;
+                background: rgba(0, 0, 0, .24);
+                display: flex;
+                justify-content: center;
+                width: 100%;
+            }
+            #${rowId} .imfdb-image img {
+                height: 100%;
+                object-fit: contain;
+                width: 100%;
+            }
+            #${rowId} .imfdb-placeholder {
+                opacity: .55;
+                padding: 1em;
             }
             #${rowId} dialog {
                 background: rgb(32, 32, 32);
@@ -121,9 +130,20 @@
                 justify-content: flex-end;
                 margin-top: 1em;
             }
-            #${rowId} .imfdb-appearances {
-                margin: 1em 0 0;
-                padding-left: 1.2em;
+            #${rowId} .imfdb-dialog-image {
+                background: rgba(0, 0, 0, .22);
+                border-radius: 8px;
+                margin: .75em 0 1em;
+                max-height: 18em;
+                object-fit: contain;
+                width: 100%;
+            }
+            #${rowId} .imfdb-dialog-summary {
+                font-weight: 600;
+            }
+            #${rowId} .imfdb-dialog-details {
+                line-height: 1.45;
+                opacity: .86;
             }
         `;
         document.head.appendChild(style);
@@ -160,18 +180,13 @@
         }
 
         const dialog = document.createElement('dialog');
-        const appearances = (firearm.appearances || []).map((appearance) => {
-            const actor = escapeHtml(appearance.actor || 'Unknown actor');
-            const character = appearance.character ? ' as ' + escapeHtml(appearance.character) : '';
-            const notes = appearance.notes ? ' - ' + escapeHtml(appearance.notes) : '';
-            return `<li>${actor}${character}${notes}</li>`;
-        }).join('');
-
         dialog.innerHTML = `
             <h2>${escapeHtml(firearm.name)}</h2>
-            <p>${escapeHtml(firearm.summary || 'Listed on IMFDB.')}</p>
-            ${appearances ? `<ol class="imfdb-appearances">${appearances}</ol>` : ''}
+            ${firearm.imageUrl ? `<img class="imfdb-dialog-image" src="${escapeAttribute(firearm.imageUrl)}" alt="${escapeAttribute(firearm.name)}">` : ''}
+            <p class="imfdb-dialog-summary">${escapeHtml(firearm.summary || 'Listed on IMFDB.')}</p>
+            <p class="imfdb-dialog-details">${escapeHtml(firearm.details || 'No additional firearm details were available from the indexed sources.')}</p>
             <div class="imfdb-dialog-actions">
+                ${firearm.detailSourceUrl ? `<button is="emby-button" type="button" class="imfdb-details-source">Details Source</button>` : ''}
                 ${firearm.url ? `<button is="emby-button" type="button" class="imfdb-open">Open IMFDB</button>` : ''}
                 <button is="emby-button" type="button" class="imfdb-close">Close</button>
             </div>
@@ -182,6 +197,9 @@
         });
         dialog.querySelector('.imfdb-open')?.addEventListener('click', function () {
             window.open(firearm.url, '_blank', 'noopener,noreferrer');
+        });
+        dialog.querySelector('.imfdb-details-source')?.addEventListener('click', function () {
+            window.open(firearm.detailSourceUrl, '_blank', 'noopener,noreferrer');
         });
         dialog.addEventListener('close', function () {
             dialog.remove();
@@ -211,7 +229,12 @@
             const card = document.createElement('button');
             card.type = 'button';
             card.className = 'imfdb-card';
-            card.innerHTML = `<span class="imfdb-name">${escapeHtml(firearm.name)}</span><span class="imfdb-summary">${escapeHtml(firearm.summary || '')}</span>`;
+            card.innerHTML = `
+                <span class="imfdb-image">
+                    ${firearm.imageUrl ? `<img src="${escapeAttribute(firearm.imageUrl)}" alt="${escapeAttribute(firearm.name)}" loading="lazy">` : '<span class="imfdb-placeholder">No image available</span>'}
+                </span>
+                <span class="imfdb-name">${escapeHtml(firearm.name)}</span>
+            `;
             card.addEventListener('click', function () {
                 showDetails(firearm);
             });
@@ -263,7 +286,10 @@
             firearms: firearms.map((firearm) => ({
                 name: firearm.name || firearm.Name,
                 url: firearm.url || firearm.Url,
+                imageUrl: firearm.imageUrl || firearm.ImageUrl,
                 summary: firearm.summary || firearm.Summary,
+                details: firearm.details || firearm.Details,
+                detailSourceUrl: firearm.detailSourceUrl || firearm.DetailSourceUrl,
                 appearances: firearm.appearances || firearm.Appearances || []
             }))
         };

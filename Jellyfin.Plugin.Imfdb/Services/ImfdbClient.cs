@@ -13,6 +13,8 @@ public partial class ImfdbClient : IImfdbClient
 {
     private static readonly Uri BrowserBaseUri = new("https://browser.imfdb.org/");
     private static readonly Uri WikiApiUri = new("https://www.imfdb.org/api.php");
+    private static readonly Uri WikipediaOpenSearchUri = new("https://en.wikipedia.org/w/api.php");
+    private static readonly Uri WikipediaSummaryBaseUri = new("https://en.wikipedia.org/api/rest_v1/page/summary/");
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
     private readonly ILogger<ImfdbClient> _logger;
@@ -162,7 +164,7 @@ public partial class ImfdbClient : IImfdbClient
                 NullIfDash(notes))));
         }
 
-        return grouped
+        var results = grouped
             .OrderByDescending(static pair => pair.Value.Count)
             .ThenBy(static pair => pair.Key, StringComparer.OrdinalIgnoreCase)
             .Select(pair =>
@@ -172,10 +174,15 @@ public partial class ImfdbClient : IImfdbClient
                 return new FirearmResult(
                     names[pair.Key],
                     string.IsNullOrWhiteSpace(url) ? null : new Uri(BrowserBaseUri, url.TrimStart('/')).ToString(),
+                    null,
                     BuildSummary(appearances),
+                    null,
+                    null,
                     appearances);
             })
             .ToArray();
+
+        return await EnrichFirearmDetailsAsync(results, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<(string Title, Uri Url)?> FindWikiMatchAsync(string title, int? year, string? imdbId, CancellationToken cancellationToken)
@@ -243,14 +250,105 @@ public partial class ImfdbClient : IImfdbClient
             results.Add(new FirearmResult(
                 name,
                 pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_')),
+                null,
                 summary,
+                summary,
+                pageUrl.ToString(),
                 Array.Empty<FirearmAppearance>()));
         }
 
-        return results
+        var distinctResults = results
             .DistinctBy(static item => NormalizeTitle(item.Name))
             .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+        return await EnrichFirearmDetailsAsync(distinctResults, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<FirearmResult>> EnrichFirearmDetailsAsync(
+        IReadOnlyList<FirearmResult> firearms,
+        CancellationToken cancellationToken)
+    {
+        var enriched = new List<FirearmResult>(firearms.Count);
+        foreach (var firearm in firearms)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            enriched.Add(await EnrichFirearmDetailAsync(firearm, cancellationToken).ConfigureAwait(false));
+        }
+
+        return enriched;
+    }
+
+    private async Task<FirearmResult> EnrichFirearmDetailAsync(FirearmResult firearm, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var wikipediaTitle = await FindWikipediaTitleAsync(firearm.Name, cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(wikipediaTitle))
+            {
+                return firearm;
+            }
+
+            var summaryUri = new Uri(WikipediaSummaryBaseUri, Uri.EscapeDataString(wikipediaTitle.Replace(' ', '_')));
+            using var document = JsonDocument.Parse(await GetStringAsync(summaryUri, cancellationToken).ConfigureAwait(false));
+            var root = document.RootElement;
+
+            var imageUrl = TryGetString(root, "thumbnail", "source") ?? TryGetString(root, "originalimage", "source");
+            var details = TryGetString(root, "extract");
+            var sourceUrl = TryGetString(root, "content_urls", "desktop", "page");
+
+            if (string.IsNullOrWhiteSpace(imageUrl) && string.IsNullOrWhiteSpace(details))
+            {
+                return firearm;
+            }
+
+            return firearm with
+            {
+                ImageUrl = imageUrl,
+                Details = string.IsNullOrWhiteSpace(details) ? firearm.Details : details,
+                DetailSourceUrl = string.IsNullOrWhiteSpace(sourceUrl) ? firearm.DetailSourceUrl : sourceUrl
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Unable to enrich firearm details for {FirearmName}", firearm.Name);
+            return firearm;
+        }
+    }
+
+    private static async Task<string?> FindWikipediaTitleAsync(string firearmName, CancellationToken cancellationToken)
+    {
+        var searchUri = new Uri(WikipediaOpenSearchUri + $"?action=opensearch&search={Uri.EscapeDataString(firearmName)}&limit=1&namespace=0&format=json");
+        using var document = JsonDocument.Parse(await GetStringAsync(searchUri, cancellationToken).ConfigureAwait(false));
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Array ||
+            root.GetArrayLength() < 2 ||
+            root[1].ValueKind != JsonValueKind.Array ||
+            root[1].GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        return root[1][0].GetString();
+    }
+
+    private static string? TryGetString(JsonElement element, params string[] path)
+    {
+        var current = element;
+        foreach (var segment in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object ||
+                !current.TryGetProperty(segment, out current))
+            {
+                return null;
+            }
+        }
+
+        return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
     }
 
     private static string ExtractSectionSummary(string wikitext, Match heading)
