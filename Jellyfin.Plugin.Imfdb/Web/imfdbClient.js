@@ -4,7 +4,10 @@
     const rowId = 'imfdb-firearms-row';
     const styleId = 'imfdb-firearms-style';
     let lastItemId = null;
+    let pendingItemId = null;
     let activeRequest = 0;
+    let scheduledUpdate = null;
+    let lastLocation = window.location.href;
 
     function apiClient() {
         return window.ApiClient || window.ConnectionManager?.currentApiClient?.();
@@ -286,15 +289,25 @@
 
     async function update() {
         const itemId = getItemId();
-        if (!itemId || itemId === lastItemId) {
+        if (!itemId) {
+            lastItemId = null;
+            pendingItemId = null;
+            activeRequest++;
+            removeExistingRow();
             return;
         }
 
         const anchor = findPeopleAnchor();
         if (!anchor) {
+            pendingItemId = itemId;
             return;
         }
 
+        if (itemId === lastItemId && !pendingItemId) {
+            return;
+        }
+
+        pendingItemId = null;
         lastItemId = itemId;
         const requestId = ++activeRequest;
         ensureStyle();
@@ -330,19 +343,53 @@
     }
 
     function scheduleUpdate() {
-        window.setTimeout(update, 350);
+        if (scheduledUpdate) {
+            window.clearTimeout(scheduledUpdate);
+        }
+
+        scheduledUpdate = window.setTimeout(function () {
+            scheduledUpdate = null;
+            update();
+        }, 250);
     }
 
-    window.addEventListener('popstate', function () {
-        lastItemId = null;
+    function handlePossibleNavigation() {
+        if (window.location.href !== lastLocation) {
+            lastLocation = window.location.href;
+            lastItemId = null;
+            pendingItemId = null;
+            activeRequest++;
+            removeExistingRow();
+        }
+
         scheduleUpdate();
+    }
+
+    function patchHistoryMethod(name) {
+        const original = window.history[name];
+        if (typeof original !== 'function') {
+            return;
+        }
+
+        window.history[name] = function () {
+            const result = original.apply(this, arguments);
+            window.setTimeout(handlePossibleNavigation, 0);
+            return result;
+        };
+    }
+
+    patchHistoryMethod('pushState');
+    patchHistoryMethod('replaceState');
+
+    window.addEventListener('popstate', function () {
+        handlePossibleNavigation();
     });
     window.addEventListener('hashchange', function () {
-        lastItemId = null;
-        scheduleUpdate();
+        handlePossibleNavigation();
     });
 
     const observer = new MutationObserver(scheduleUpdate);
     observer.observe(document.body, { childList: true, subtree: true });
-    scheduleUpdate();
+    window.setInterval(handlePossibleNavigation, 1000);
+    handlePossibleNavigation();
 })();
