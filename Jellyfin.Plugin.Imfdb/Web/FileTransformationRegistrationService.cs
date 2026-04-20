@@ -11,6 +11,15 @@ namespace Jellyfin.Plugin.Imfdb.Web;
 public class FileTransformationRegistrationService : IHostedService
 {
     private static readonly Guid TransformationId = Guid.Parse("5c67db76-0120-4636-a557-6d74cdaac5a7");
+    private static readonly string[] FileNamePatterns =
+    {
+        "index\\.html$",
+        "^index\\.html$",
+        "web/index\\.html$",
+        "^web/index\\.html$",
+        "/web/index\\.html$"
+    };
+
     private readonly ILogger<FileTransformationRegistrationService> _logger;
     private CancellationTokenSource? _stoppingTokenSource;
 
@@ -100,18 +109,22 @@ public class FileTransformationRegistrationService : IHostedService
                 return false;
             }
 
-            var payloadJson = $$"""
-                {
-                  "id": "{{TransformationId}}",
-                  "fileNamePattern": "index\\.html$",
-                  "callbackAssembly": "{{typeof(ImfdbWebTransformer).Assembly.FullName}}",
-                  "callbackClass": "{{typeof(ImfdbWebTransformer).FullName}}",
-                  "callbackMethod": "{{nameof(ImfdbWebTransformer.TransformIndex)}}"
-                }
-                """;
+            foreach (var fileNamePattern in FileNamePatterns)
+            {
+                var payloadJson = $$"""
+                    {
+                      "id": "{{GuidFromPattern(fileNamePattern)}}",
+                      "fileNamePattern": "{{fileNamePattern.Replace("\\", "\\\\", StringComparison.Ordinal)}}",
+                      "callbackAssembly": "{{typeof(ImfdbWebTransformer).Assembly.FullName}}",
+                      "callbackClass": "{{typeof(ImfdbWebTransformer).FullName}}",
+                      "callbackMethod": "{{nameof(ImfdbWebTransformer.TransformIndex)}}"
+                    }
+                    """;
 
-            var payload = parseMethod.Invoke(null, new object[] { payloadJson });
-            registerMethod.Invoke(null, new[] { payload });
+                var payload = parseMethod.Invoke(null, new object[] { payloadJson });
+                registerMethod.Invoke(null, new[] { payload });
+            }
+
             IsRegistered = true;
             LastStatus = "Registered IMFDB Jellyfin Web transformation with File Transformation.";
             _logger.LogInformation("{Status}", LastStatus);
@@ -123,5 +136,14 @@ public class FileTransformationRegistrationService : IHostedService
             _logger.LogWarning(ex, "{Status}", LastStatus);
             return false;
         }
+    }
+
+    private static Guid GuidFromPattern(string fileNamePattern)
+    {
+        var bytes = TransformationId.ToByteArray();
+        var hash = fileNamePattern.Aggregate(0, static (current, character) => HashCode.Combine(current, character));
+        var hashBytes = BitConverter.GetBytes(hash);
+        Array.Copy(hashBytes, 0, bytes, 12, hashBytes.Length);
+        return new Guid(bytes);
     }
 }
