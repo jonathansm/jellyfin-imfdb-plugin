@@ -44,7 +44,7 @@ public class ImfdbController : ControllerBase
     {
         if (Plugin.Instance?.Configuration.EnableLookups == false)
         {
-            return Ok(new ImfdbLookupResult(itemId, null, string.Empty, null, null, null, Array.Empty<FirearmResult>()));
+            return Ok(new ImfdbLookupResult(itemId, null, string.Empty, null, null, null, null, Array.Empty<FirearmResult>()));
         }
 
         var item = _libraryManager.GetItemById(itemId);
@@ -65,6 +65,9 @@ public class ImfdbController : ControllerBase
             item.ProductionYear,
             sourceTitle,
             sourceUrl,
+            firearms.Select(static firearm => firearm.SourceSectionUrl)
+                .FirstOrDefault(static url => !string.IsNullOrWhiteSpace(url))?
+                .Split('#')[0],
             firearms));
     }
 

@@ -9,6 +9,7 @@ namespace Jellyfin.Plugin.Imfdb.Models;
 /// <param name="Year">Production year searched.</param>
 /// <param name="SourceTitle">Matched IMFDB title.</param>
 /// <param name="SourceUrl">Matched source URL.</param>
+/// <param name="ImfdbUrl">Matched title's main IMFDB wiki URL.</param>
 /// <param name="Firearms">Grouped firearm results.</param>
 public sealed record ImfdbLookupResult(
     Guid ItemId,
@@ -17,5 +18,5 @@ public sealed record ImfdbLookupResult(
     int? Year,
     string? SourceTitle,
     string? SourceUrl,
+    string? ImfdbUrl,
     IReadOnlyList<FirearmResult> Firearms);
-

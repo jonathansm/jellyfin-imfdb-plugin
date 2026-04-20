@@ -70,6 +70,16 @@
                 padding: .25em 0 .6em;
                 scroll-snap-type: x proximity;
             }
+            #${rowId} .imfdb-source-link {
+                color: inherit;
+                opacity: .72;
+                text-decoration: none;
+            }
+            #${rowId} .imfdb-source-link:hover,
+            #${rowId} .imfdb-source-link:focus {
+                opacity: 1;
+                text-decoration: underline;
+            }
             #${rowId} .imfdb-card {
                 background: rgba(255, 255, 255, .08);
                 border: 1px solid rgba(255, 255, 255, .12);
@@ -130,6 +140,27 @@
                 justify-content: flex-end;
                 margin-top: 1em;
             }
+            #${rowId} .imfdb-action {
+                align-items: center;
+                background: rgba(255, 255, 255, .10);
+                border: 1px solid rgba(255, 255, 255, .18);
+                border-radius: 8px;
+                color: inherit;
+                cursor: pointer;
+                display: inline-flex;
+                font: inherit;
+                font-weight: 600;
+                justify-content: center;
+                min-height: 2.75em;
+                min-width: 7.5em;
+                padding: .65em 1em;
+            }
+            #${rowId} .imfdb-action:hover,
+            #${rowId} .imfdb-action:focus {
+                background: rgba(255, 255, 255, .18);
+                outline: 2px solid rgba(255, 255, 255, .30);
+                outline-offset: 2px;
+            }
             #${rowId} .imfdb-dialog-image {
                 background: rgba(0, 0, 0, .22);
                 border-radius: 8px;
@@ -187,9 +218,9 @@
             <p class="imfdb-dialog-summary">${escapeHtml(firearm.summary || 'Listed on IMFDB.')}</p>
             <p class="imfdb-dialog-details">${escapeHtml(firearm.details || 'No additional firearm details were available from the indexed sources.')}</p>
             <div class="imfdb-dialog-actions">
-                ${firearm.detailSourceUrl ? `<button is="emby-button" type="button" class="imfdb-details-source">Details Source</button>` : ''}
-                ${imfdbUrl ? `<button is="emby-button" type="button" class="imfdb-open">Open IMFDB</button>` : ''}
-                <button is="emby-button" type="button" class="imfdb-close">Close</button>
+                ${firearm.detailSourceUrl ? `<button type="button" class="imfdb-action imfdb-details-source">Details Source</button>` : ''}
+                ${imfdbUrl ? `<button type="button" class="imfdb-action imfdb-open">Open IMFDB</button>` : ''}
+                <button type="button" class="imfdb-action imfdb-close">Close</button>
             </div>
         `;
 
@@ -221,9 +252,9 @@
             return;
         }
 
-        const source = result.sourceUrl;
-        const sourceLink = source ? `<a href="${escapeAttribute(source)}" target="_blank" rel="noopener noreferrer">IMFDB</a>` : 'IMFDB';
-        row.innerHTML = `<h2 class="sectionTitle">Firearms <span style="font-size:.75em;font-weight:400;opacity:.65">from ${sourceLink}</span></h2><div class="imfdb-scroll"></div>`;
+        const source = result.imfdbUrl || result.sourceUrl;
+        const sourceLink = source ? `<a class="imfdb-source-link" href="${escapeAttribute(source)}" target="_blank" rel="noopener noreferrer">IMFDB</a>` : 'IMFDB';
+        row.innerHTML = `<h2 class="sectionTitle">Firearms <span style="font-size:.75em;font-weight:400;opacity:.72">from ${sourceLink}</span></h2><div class="imfdb-scroll"></div>`;
 
         const scroller = row.querySelector('.imfdb-scroll');
         firearms.forEach((firearm) => {
@@ -284,6 +315,7 @@
         const firearms = result.firearms || result.Firearms || [];
         return {
             sourceUrl: result.sourceUrl || result.SourceUrl,
+            imfdbUrl: result.imfdbUrl || result.ImfdbUrl,
             firearms: firearms.map((firearm) => ({
                 name: firearm.name || firearm.Name,
                 url: firearm.url || firearm.Url,
