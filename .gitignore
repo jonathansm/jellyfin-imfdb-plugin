@@ -1,5 +1,7 @@
 bin/
 obj/
+Jellyfin.Plugin.Imfdb/bin/
+Jellyfin.Plugin.Imfdb/obj/
 .vs/
 .vscode/
 .idea/
@@ -8,4 +10,3 @@ obj/
 *.nupkg
 *.snupkg
 artifacts/
-

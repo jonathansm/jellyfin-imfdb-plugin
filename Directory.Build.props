@@ -1,9 +1,8 @@
 <Project>
   <PropertyGroup>
     <Authors>jellyfin-imfdb contributors</Authors>
-    <RepositoryUrl>https://github.com/local/jellyfin-imfdb</RepositoryUrl>
+    <RepositoryUrl>https://github.com/YOUR_GITHUB_USERNAME/jellyfin-imfdb</RepositoryUrl>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 </Project>
-

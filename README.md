@@ -24,6 +24,28 @@ https://www.iamparadox.dev/jellyfin/plugins/manifest.json
 
 After installing both plugins, restart Jellyfin and hard refresh Jellyfin Web. If File Transformation is not installed or is not loaded, the `/Imfdb/Lookup` API will still work, but the firearm row will not appear.
 
+## Install From A Jellyfin Repository
+
+Once this project is published to GitHub with GitHub Pages enabled, users can install it from a Jellyfin plugin repository URL:
+
+```text
+https://YOUR_GITHUB_USERNAME.github.io/jellyfin-imfdb/manifest.json
+```
+
+In Jellyfin:
+
+1. Go to Dashboard -> Plugins -> Repositories.
+2. Add the repository URL above.
+3. Go to Catalog.
+4. Install IMFDB.
+5. Restart Jellyfin.
+
+This plugin also requires the File Transformation plugin repository:
+
+```text
+https://www.iamparadox.dev/jellyfin/plugins/manifest.json
+```
+
 ## Build
 
 This project targets Jellyfin 10.11.x and .NET 9:
@@ -33,6 +55,44 @@ dotnet publish Jellyfin.Plugin.Imfdb.sln -c Release
 ```
 
 Copy the publish output from `Jellyfin.Plugin.Imfdb/bin/Release/net9.0/publish/` into a Jellyfin plugin folder, then restart Jellyfin.
+
+## Package A Release Locally
+
+```bash
+./scripts/package-plugin.sh 0.1.0.0
+```
+
+This creates:
+
+```text
+artifacts/jellyfin-plugin-imfdb_0.1.0.0.zip
+artifacts/jellyfin-plugin-imfdb_0.1.0.0.zip.md5
+```
+
+## Publish A GitHub Release
+
+1. Replace `YOUR_GITHUB_USERNAME` in `Directory.Build.props`, `build.yaml`, and this README.
+2. Push the repository to GitHub.
+3. Enable GitHub Pages for the `gh-pages` branch in the repository settings.
+4. Create and push a version tag:
+
+```bash
+git tag v0.1.0.0
+git push origin main --tags
+```
+
+The release workflow will:
+
+- build the plugin
+- upload a release zip and `.md5`
+- generate `manifest.json`
+- publish the manifest to the `gh-pages` branch
+
+Users then add this repository URL in Jellyfin:
+
+```text
+https://YOUR_GITHUB_USERNAME.github.io/jellyfin-imfdb/manifest.json
+```
 
 ## Development Status
 

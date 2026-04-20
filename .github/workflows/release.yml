@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Package plugin
+        id: package
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          bash ./scripts/package-plugin.sh "${VERSION}"
+          ZIP="artifacts/jellyfin-plugin-imfdb_${VERSION}.zip"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "zip=${ZIP}" >> "$GITHUB_OUTPUT"
+          echo "checksum=$(cat "${ZIP}.md5")" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.package.outputs.zip }}
+            ${{ steps.package.outputs.zip }}.md5
+          generate_release_notes: true
+
+      - name: Update manifest for GitHub Pages
+        shell: bash
+        run: |
+          VERSION="${{ steps.package.outputs.version }}"
+          CHECKSUM="${{ steps.package.outputs.checksum }}"
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          SOURCE_URL="https://github.com/${OWNER}/${REPO}/releases/download/v${VERSION}/jellyfin-plugin-imfdb_${VERSION}.zip"
+          TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          mkdir -p public
+          cat > public/manifest.json <<EOF
+          [
+            {
+              "guid": "0282b499-528f-4185-a301-0a0c333139a7",
+              "name": "IMFDB",
+              "description": "Adds IMFDB firearm information for Jellyfin movies and shows.",
+              "overview": "Adds IMFDB firearm cards to Jellyfin movie and show pages.",
+              "owner": "${OWNER}",
+              "category": "Metadata",
+              "versions": [
+                {
+                  "version": "${VERSION}",
+                  "changelog": "See the GitHub release notes for this version.",
+                  "targetAbi": "10.11.0.0",
+                  "sourceUrl": "${SOURCE_URL}",
+                  "checksum": "${CHECKSUM}",
+                  "timestamp": "${TIMESTAMP}"
+                }
+              ]
+            }
+          ]
+          EOF
+
+      - name: Deploy manifest to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: public
+          branch: gh-pages
+          clean: true
