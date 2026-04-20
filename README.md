@@ -1,6 +1,6 @@
 # Jellyfin IMFDB
 
-> Disclaimer: this project is vibecoded. It works for the author's current use case, but it should be treated as an experimental community plugin rather than a polished official Jellyfin integration.
+> Disclaimer: this project is vibecoded. It should be treated as an experimental community plugin rather than a polished official Jellyfin integration.
 
 Jellyfin IMFDB is a Jellyfin server plugin that looks up movies and series in IMFDB data and adds a firearm card row to Jellyfin Web by using the File Transformation plugin.
 
@@ -33,9 +33,9 @@ If a title has no IMFDB entry, the firearms row should stay hidden. If an entry 
 - Jellyfin 10.11.x.
 - .NET 9 compatible Jellyfin plugin runtime.
 - Jellyfin Web hosted by the Jellyfin server.
-- File Transformation plugin.
+- [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation).
 
-Install File Transformation from this repository:
+Install File Transformation from its Jellyfin plugin repository:
 
 ```text
 https://www.iamparadox.dev/jellyfin/plugins/manifest.json
