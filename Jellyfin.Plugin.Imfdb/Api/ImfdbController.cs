@@ -1,9 +1,9 @@
 using System.Reflection;
-using Jellyfin.Api.Constants;
 using Jellyfin.Plugin.Imfdb.Models;
 using Jellyfin.Plugin.Imfdb.Services;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.Imfdb.Api;
@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.Imfdb.Api;
 /// IMFDB API endpoints.
 /// </summary>
 [ApiController]
-[Authorize(Policy = Policies.DefaultAuthorization)]
+[Authorize]
 [Route("Imfdb")]
 public class ImfdbController : ControllerBase
 {
@@ -88,4 +88,3 @@ public class ImfdbController : ControllerBase
         return Content(reader.ReadToEnd(), "application/javascript");
     }
 }
-

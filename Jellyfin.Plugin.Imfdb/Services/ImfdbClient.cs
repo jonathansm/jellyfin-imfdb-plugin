@@ -221,14 +221,14 @@ public partial class ImfdbClient : IImfdbClient
         var uri = new Uri(WikiApiUri + $"?action=parse&prop=wikitext&format=json&page={Uri.EscapeDataString(pageTitle)}");
         using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
         if (!document.RootElement.TryGetProperty("parse", out var parse) ||
-            !parse.TryGetProperty("wikitext", out var wikitext) ||
-            !wikitext.TryGetProperty("*", out var textElement))
+            !parse.TryGetProperty("wikitext", out var wikitextElement) ||
+            !wikitextElement.TryGetProperty("*", out var textElement))
         {
             return Array.Empty<FirearmResult>();
         }
 
-        var wikitext = textElement.GetString() ?? string.Empty;
-        var headings = WikiHeadingRegex().Matches(wikitext);
+        var wikiText = textElement.GetString() ?? string.Empty;
+        var headings = WikiHeadingRegex().Matches(wikiText);
         var results = new List<FirearmResult>();
 
         foreach (Match heading in headings)
@@ -239,7 +239,7 @@ public partial class ImfdbClient : IImfdbClient
                 continue;
             }
 
-            var summary = ExtractSectionSummary(wikitext, heading);
+            var summary = ExtractSectionSummary(wikiText, heading);
             results.Add(new FirearmResult(
                 name,
                 pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_')),
