@@ -1,6 +1,7 @@
 using System.Reflection;
 using Jellyfin.Plugin.Imfdb.Models;
 using Jellyfin.Plugin.Imfdb.Services;
+using Jellyfin.Plugin.Imfdb.Web;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -86,5 +87,22 @@ public class ImfdbController : ControllerBase
 
         using var reader = new StreamReader(stream);
         return Content(reader.ReadToEnd(), "application/javascript");
+    }
+
+    /// <summary>
+    /// Returns basic plugin diagnostics.
+    /// </summary>
+    /// <returns>Plugin diagnostics.</returns>
+    [HttpGet("Status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult Status()
+    {
+        return Ok(new
+        {
+            PluginEnabled = Plugin.Instance?.Configuration.EnableLookups != false,
+            WebUiInjectionEnabled = Plugin.Instance?.Configuration.EnableWebUiInjection != false,
+            FileTransformationRegistered = FileTransformationRegistrationService.IsRegistered,
+            FileTransformationStatus = FileTransformationRegistrationService.LastStatus
+        });
     }
 }

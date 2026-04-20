@@ -23,6 +23,16 @@ public class FileTransformationRegistrationService : IHostedService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Gets a value indicating whether the transformation registered successfully.
+    /// </summary>
+    public static bool IsRegistered { get; private set; }
+
+    /// <summary>
+    /// Gets the most recent registration status message.
+    /// </summary>
+    public static string LastStatus { get; private set; } = "Not started.";
+
     /// <inheritdoc />
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -73,7 +83,8 @@ public class FileTransformationRegistrationService : IHostedService
 
             if (fileTransformationAssembly is null)
             {
-                _logger.LogInformation("File Transformation plugin is not loaded; IMFDB Jellyfin Web row injection is disabled.");
+                LastStatus = "File Transformation plugin is not loaded.";
+                _logger.LogInformation("{Status}", LastStatus);
                 return false;
             }
 
@@ -84,7 +95,8 @@ public class FileTransformationRegistrationService : IHostedService
 
             if (registerMethod is null || payloadType is null || parseMethod is null)
             {
-                _logger.LogWarning("File Transformation plugin was found, but the registration API was not available.");
+                LastStatus = "File Transformation plugin was found, but the registration API was not available.";
+                _logger.LogWarning("{Status}", LastStatus);
                 return false;
             }
 
@@ -100,12 +112,15 @@ public class FileTransformationRegistrationService : IHostedService
 
             var payload = parseMethod.Invoke(null, new object[] { payloadJson });
             registerMethod.Invoke(null, new[] { payload });
-            _logger.LogInformation("Registered IMFDB Jellyfin Web transformation with File Transformation.");
+            IsRegistered = true;
+            LastStatus = "Registered IMFDB Jellyfin Web transformation with File Transformation.";
+            _logger.LogInformation("{Status}", LastStatus);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to register IMFDB Jellyfin Web transformation.");
+            LastStatus = "Failed to register IMFDB Jellyfin Web transformation: " + ex.GetType().Name + " " + ex.Message;
+            _logger.LogWarning(ex, "{Status}", LastStatus);
             return false;
         }
     }

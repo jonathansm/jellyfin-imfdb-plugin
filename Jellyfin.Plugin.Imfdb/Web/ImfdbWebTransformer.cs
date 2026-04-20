@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.Imfdb.Web;
 /// </summary>
 public static class ImfdbWebTransformer
 {
-    private const string ScriptTag = "<script defer src=\"/Imfdb/ClientScript\"></script>";
+    private const string ScriptTag = "<script defer src=\"../Imfdb/ClientScript\"></script>";
     private const string Marker = "<!-- jellyfin-imfdb-client -->";
 
     /// <summary>
@@ -33,4 +33,3 @@ public static class ImfdbWebTransformer
         return contents + injection;
     }
 }
-

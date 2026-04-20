@@ -32,9 +32,17 @@
     }
 
     async function lookupFirearms(itemId) {
-        const response = await fetch(getApiUrl('Imfdb/Lookup?itemId=' + encodeURIComponent(itemId)), {
-            headers: getAuthHeaders()
-        });
+        const url = getApiUrl('Imfdb/Lookup?itemId=' + encodeURIComponent(itemId));
+        const client = apiClient();
+        if (client && typeof client.ajax === 'function') {
+            return client.ajax({
+                type: 'GET',
+                url: url,
+                dataType: 'json'
+            });
+        }
+
+        const response = await fetch(url, { headers: getAuthHeaders() });
 
         if (!response.ok) {
             throw new Error('IMFDB lookup failed: ' + response.status);
