@@ -180,6 +180,7 @@
         }
 
         const dialog = document.createElement('dialog');
+        const imfdbUrl = firearm.sourceSectionUrl || firearm.url;
         dialog.innerHTML = `
             <h2>${escapeHtml(firearm.name)}</h2>
             ${firearm.imageUrl ? `<img class="imfdb-dialog-image" src="${escapeAttribute(firearm.imageUrl)}" alt="${escapeAttribute(firearm.name)}">` : ''}
@@ -187,7 +188,7 @@
             <p class="imfdb-dialog-details">${escapeHtml(firearm.details || 'No additional firearm details were available from the indexed sources.')}</p>
             <div class="imfdb-dialog-actions">
                 ${firearm.detailSourceUrl ? `<button is="emby-button" type="button" class="imfdb-details-source">Details Source</button>` : ''}
-                ${firearm.url ? `<button is="emby-button" type="button" class="imfdb-open">Open IMFDB</button>` : ''}
+                ${imfdbUrl ? `<button is="emby-button" type="button" class="imfdb-open">Open IMFDB</button>` : ''}
                 <button is="emby-button" type="button" class="imfdb-close">Close</button>
             </div>
         `;
@@ -196,7 +197,7 @@
             dialog.close();
         });
         dialog.querySelector('.imfdb-open')?.addEventListener('click', function () {
-            window.open(firearm.url, '_blank', 'noopener,noreferrer');
+            window.open(imfdbUrl, '_blank', 'noopener,noreferrer');
         });
         dialog.querySelector('.imfdb-details-source')?.addEventListener('click', function () {
             window.open(firearm.detailSourceUrl, '_blank', 'noopener,noreferrer');
@@ -286,6 +287,7 @@
             firearms: firearms.map((firearm) => ({
                 name: firearm.name || firearm.Name,
                 url: firearm.url || firearm.Url,
+                sourceSectionUrl: firearm.sourceSectionUrl || firearm.SourceSectionUrl,
                 imageUrl: firearm.imageUrl || firearm.ImageUrl,
                 summary: firearm.summary || firearm.Summary,
                 details: firearm.details || firearm.Details,

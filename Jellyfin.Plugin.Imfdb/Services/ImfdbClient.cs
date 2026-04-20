@@ -133,6 +133,7 @@ public partial class ImfdbClient : IImfdbClient
     private async Task<IReadOnlyList<FirearmResult>> ReadBrowserMediaAsync(Uri mediaUrl, CancellationToken cancellationToken)
     {
         var html = await GetStringAsync(mediaUrl, cancellationToken).ConfigureAwait(false);
+        var sourcePageUrl = FindImfdbSourcePageUrl(html);
         var rows = BrowserAppearanceRowRegex().Matches(html);
         var grouped = new Dictionary<string, List<(string FirearmUrl, FirearmAppearance Appearance)>>(StringComparer.OrdinalIgnoreCase);
         var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -174,6 +175,7 @@ public partial class ImfdbClient : IImfdbClient
                 return new FirearmResult(
                     names[pair.Key],
                     string.IsNullOrWhiteSpace(url) ? null : new Uri(BrowserBaseUri, url.TrimStart('/')).ToString(),
+                    BuildSourceSectionUrl(sourcePageUrl, names[pair.Key]),
                     null,
                     BuildSummary(appearances),
                     null,
@@ -250,6 +252,7 @@ public partial class ImfdbClient : IImfdbClient
             results.Add(new FirearmResult(
                 name,
                 pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_')),
+                pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_')),
                 null,
                 summary,
                 summary,
@@ -263,6 +266,28 @@ public partial class ImfdbClient : IImfdbClient
             .ToArray();
 
         return await EnrichFirearmDetailsAsync(distinctResults, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string? FindImfdbSourcePageUrl(string html)
+    {
+        var match = ImfdbSourcePageLinkRegex().Match(html);
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        return WebUtility.HtmlDecode(match.Groups["url"].Value);
+    }
+
+    private static string? BuildSourceSectionUrl(string? sourcePageUrl, string firearmName)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePageUrl))
+        {
+            return null;
+        }
+
+        var section = Uri.EscapeDataString(firearmName.Replace(' ', '_'));
+        return sourcePageUrl + "#" + section;
     }
 
     private async Task<IReadOnlyList<FirearmResult>> EnrichFirearmDetailsAsync(
@@ -447,6 +472,9 @@ public partial class ImfdbClient : IImfdbClient
 
     [GeneratedRegex("<tr>\\s*<td[^>]*>\\s*<a[^>]*>(?<actor>.*?)</a>\\s*</td>\\s*<td[^>]*>(?<character>.*?)</td>\\s*<td[^>]*>\\s*<a\\s+href=\"(?<url>/firearms/\\d+)\"[^>]*>(?<firearm>.*?)</a>\\s*</td>\\s*<td[^>]*>(?<notes>.*?)</td>\\s*</tr>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex BrowserAppearanceRowRegex();
+
+    [GeneratedRegex("<a\\s+href=\"(?<url>https://www\\.imfdb\\.org/wiki/[^\"]+)\"[^>]*>\\s*View on IMFDB", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex ImfdbSourcePageLinkRegex();
 
     [GeneratedRegex("^==+\\s*(?<name>[^=]+?)\\s*==+\\s*$", RegexOptions.Multiline)]
     private static partial Regex WikiHeadingRegex();
