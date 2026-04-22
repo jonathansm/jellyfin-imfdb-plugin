@@ -1,6 +1,6 @@
 name: "IMFDB"
 guid: "0282b499-528f-4185-a301-0a0c333139a7"
-version: "0.1.0.0"
+version: "0.1.1.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Adds IMFDB firearm cards to Jellyfin movie and show pages."
@@ -10,4 +10,3 @@ owner: "jonathansm"
 artifacts:
   - "Jellyfin.Plugin.Imfdb.dll"
   - "Jellyfin.Plugin.Imfdb.xml"
-
