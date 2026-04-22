@@ -54,6 +54,38 @@
         return response.json();
     }
 
+    function openExternalUrl(url) {
+        if (!url) {
+            return;
+        }
+
+        const externalUrl = String(url);
+
+        try {
+            if (typeof window.NativeInterface?.openUrl === 'function' && window.NativeInterface.openUrl(externalUrl)) {
+                return;
+            }
+        } catch (error) {
+            console.warn('Unable to open URL through Jellyfin native bridge.', error);
+        }
+
+        try {
+            if (window.cordova && typeof window.open === 'function') {
+                window.open(externalUrl, '_system', 'location=yes');
+                return;
+            }
+        } catch (error) {
+            console.warn('Unable to open URL through Cordova system browser.', error);
+        }
+
+        const openedWindow = window.open(externalUrl, '_blank', 'noopener,noreferrer');
+        if (openedWindow) {
+            openedWindow.opener = null;
+        } else {
+            window.location.href = externalUrl;
+        }
+    }
+
     function ensureStyle() {
         if (document.getElementById(styleId)) {
             return;
@@ -242,10 +274,10 @@
             dialog.close();
         });
         dialog.querySelector('.imfdb-open')?.addEventListener('click', function () {
-            window.open(imfdbUrl, '_blank', 'noopener,noreferrer');
+            openExternalUrl(imfdbUrl);
         });
         dialog.querySelector('.imfdb-details-source')?.addEventListener('click', function () {
-            window.open(firearm.detailSourceUrl, '_blank', 'noopener,noreferrer');
+            openExternalUrl(firearm.detailSourceUrl);
         });
         dialog.addEventListener('close', function () {
             dialog.remove();
@@ -255,7 +287,7 @@
         if (typeof dialog.showModal === 'function') {
             dialog.showModal();
         } else if (firearm.url) {
-            window.open(firearm.url, '_blank', 'noopener,noreferrer');
+            openExternalUrl(imfdbUrl || firearm.url);
         }
     }
 
@@ -269,6 +301,11 @@
         const source = result.imfdbUrl || result.sourceUrl;
         const sourceLink = source ? `<a class="imfdb-source-link" href="${escapeAttribute(source)}" target="_blank" rel="noopener noreferrer">IMFDB</a>` : 'IMFDB';
         row.innerHTML = `<h2 class="sectionTitle">Firearms <span class="imfdb-card-source">from ${sourceLink}</span></h2><div class="imfdb-scroll"></div>`;
+
+        row.querySelector('.imfdb-source-link')?.addEventListener('click', function (event) {
+            event.preventDefault();
+            openExternalUrl(source);
+        });
 
         const scroller = row.querySelector('.imfdb-scroll');
         firearms.forEach((firearm) => {
