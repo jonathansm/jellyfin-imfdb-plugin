@@ -78,6 +78,18 @@
             console.warn('Unable to open URL through Cordova system browser.', error);
         }
 
+        try {
+            if (typeof window.ReactNativeWebView?.postMessage === 'function') {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                    event: 'openUrl',
+                    data: { url: externalUrl }
+                }));
+                return;
+            }
+        } catch (error) {
+            console.warn('Unable to open URL through React Native WebView bridge.', error);
+        }
+
         const openedWindow = window.open(externalUrl, '_blank', 'noopener,noreferrer');
         if (openedWindow) {
             openedWindow.opener = null;
