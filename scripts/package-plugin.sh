@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-0.1.1.0}"
+VERSION="${1:-0.1.1.1}"
 CONFIGURATION="${CONFIGURATION:-Release}"
 PROJECT="Jellyfin.Plugin.Imfdb/Jellyfin.Plugin.Imfdb.csproj"
 PUBLISH_DIR="Jellyfin.Plugin.Imfdb/bin/${CONFIGURATION}/net9.0/publish"

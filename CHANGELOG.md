@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1.1
+
+- Fixes IMFDB external link handling so desktop web opens a new tab without replacing the current Jellyfin page.
+- Improves Jellyfin mobile app compatibility by avoiding optional chaining in the injected client script.
+
 ## 0.1.1.0
 
 - Refreshes firearm card styling to better match Jellyfin cast and crew rows.

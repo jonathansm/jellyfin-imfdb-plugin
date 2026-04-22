@@ -10,7 +10,10 @@
     let lastLocation = window.location.href;
 
     function apiClient() {
-        return window.ApiClient || window.ConnectionManager?.currentApiClient?.();
+        return window.ApiClient ||
+            (window.ConnectionManager && typeof window.ConnectionManager.currentApiClient === 'function'
+                ? window.ConnectionManager.currentApiClient()
+                : null);
     }
 
     function getItemId() {
@@ -30,7 +33,9 @@
 
     function getAuthHeaders() {
         const client = apiClient();
-        const token = typeof client?.accessToken === 'function' ? client.accessToken() : client?._serverInfo?.AccessToken;
+        const token = client && typeof client.accessToken === 'function'
+            ? client.accessToken()
+            : client && client._serverInfo ? client._serverInfo.AccessToken : null;
         return token ? { 'X-Emby-Token': token } : {};
     }
 
@@ -62,7 +67,9 @@
         const externalUrl = String(url);
 
         try {
-            if (typeof window.NativeInterface?.openUrl === 'function' && window.NativeInterface.openUrl(externalUrl)) {
+            if (window.NativeInterface &&
+                typeof window.NativeInterface.openUrl === 'function' &&
+                window.NativeInterface.openUrl(externalUrl)) {
                 return;
             }
         } catch (error) {
@@ -79,7 +86,7 @@
         }
 
         try {
-            if (typeof window.ReactNativeWebView?.postMessage === 'function') {
+            if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                     event: 'openUrl',
                     data: { url: externalUrl }
@@ -90,11 +97,13 @@
             console.warn('Unable to open URL through React Native WebView bridge.', error);
         }
 
-        const openedWindow = window.open(externalUrl, '_blank', 'noopener,noreferrer');
-        if (openedWindow) {
-            openedWindow.opener = null;
-        } else {
-            window.location.href = externalUrl;
+        try {
+            const openedWindow = window.open(externalUrl, '_blank');
+            if (openedWindow) {
+                openedWindow.opener = null;
+            }
+        } catch (error) {
+            console.warn('Unable to open URL in a new browser tab.', error);
         }
     }
 
@@ -246,11 +255,14 @@
 
         const headings = Array.from(document.querySelectorAll('h2, .sectionTitle'));
         const peopleHeading = headings.find((heading) => /cast|people|actors/i.test(heading.textContent || ''));
-        return peopleHeading?.closest('section, .verticalSection, .detailSection, div') || peopleHeading || null;
+        return peopleHeading ? peopleHeading.closest('section, .verticalSection, .detailSection, div') || peopleHeading : null;
     }
 
     function removeExistingRow() {
-        document.getElementById(rowId)?.remove();
+        const existingRow = document.getElementById(rowId);
+        if (existingRow) {
+            existingRow.remove();
+        }
     }
 
     function renderLoading(anchor) {
@@ -282,15 +294,26 @@
             </div>
         `;
 
-        dialog.querySelector('.imfdb-close')?.addEventListener('click', function () {
-            dialog.close();
-        });
-        dialog.querySelector('.imfdb-open')?.addEventListener('click', function () {
-            openExternalUrl(imfdbUrl);
-        });
-        dialog.querySelector('.imfdb-details-source')?.addEventListener('click', function () {
-            openExternalUrl(firearm.detailSourceUrl);
-        });
+        const closeButton = dialog.querySelector('.imfdb-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', function () {
+                dialog.close();
+            });
+        }
+
+        const openButton = dialog.querySelector('.imfdb-open');
+        if (openButton) {
+            openButton.addEventListener('click', function () {
+                openExternalUrl(imfdbUrl);
+            });
+        }
+
+        const detailsSourceButton = dialog.querySelector('.imfdb-details-source');
+        if (detailsSourceButton) {
+            detailsSourceButton.addEventListener('click', function () {
+                openExternalUrl(firearm.detailSourceUrl);
+            });
+        }
         dialog.addEventListener('close', function () {
             dialog.remove();
         });
@@ -314,10 +337,13 @@
         const sourceLink = source ? `<a class="imfdb-source-link" href="${escapeAttribute(source)}" target="_blank" rel="noopener noreferrer">IMFDB</a>` : 'IMFDB';
         row.innerHTML = `<h2 class="sectionTitle">Firearms <span class="imfdb-card-source">from ${sourceLink}</span></h2><div class="imfdb-scroll"></div>`;
 
-        row.querySelector('.imfdb-source-link')?.addEventListener('click', function (event) {
-            event.preventDefault();
-            openExternalUrl(source);
-        });
+        const sourceLinkElement = row.querySelector('.imfdb-source-link');
+        if (sourceLinkElement) {
+            sourceLinkElement.addEventListener('click', function (event) {
+                event.preventDefault();
+                openExternalUrl(source);
+            });
+        }
 
         const scroller = row.querySelector('.imfdb-scroll');
         firearms.forEach((firearm) => {
