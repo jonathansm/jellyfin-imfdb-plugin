@@ -306,31 +306,33 @@ public partial class ImfdbClient : IImfdbClient
     {
         try
         {
-            var wikipediaTitle = await FindWikipediaTitleAsync(firearm.Name, cancellationToken).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(wikipediaTitle))
+            var wikipediaTitles = await FindWikipediaTitlesAsync(firearm.Name, cancellationToken).ConfigureAwait(false);
+            foreach (var wikipediaTitle in wikipediaTitles)
             {
-                return firearm;
+                var summaryUri = new Uri(WikipediaSummaryBaseUri, Uri.EscapeDataString(wikipediaTitle.Replace(' ', '_')));
+                using var document = JsonDocument.Parse(await GetStringAsync(summaryUri, cancellationToken).ConfigureAwait(false));
+                var root = document.RootElement;
+
+                var imageUrl = TryGetString(root, "thumbnail", "source") ?? TryGetString(root, "originalimage", "source");
+                var details = TryGetString(root, "extract");
+                var description = TryGetString(root, "description");
+                var sourceUrl = TryGetString(root, "content_urls", "desktop", "page");
+
+                if ((string.IsNullOrWhiteSpace(imageUrl) && string.IsNullOrWhiteSpace(details)) ||
+                    !IsLikelyFirearmWikipediaMatch(firearm.Name, wikipediaTitle, description, details))
+                {
+                    continue;
+                }
+
+                return firearm with
+                {
+                    ImageUrl = imageUrl,
+                    Details = string.IsNullOrWhiteSpace(details) ? firearm.Details : details,
+                    DetailSourceUrl = string.IsNullOrWhiteSpace(sourceUrl) ? firearm.DetailSourceUrl : sourceUrl
+                };
             }
 
-            var summaryUri = new Uri(WikipediaSummaryBaseUri, Uri.EscapeDataString(wikipediaTitle.Replace(' ', '_')));
-            using var document = JsonDocument.Parse(await GetStringAsync(summaryUri, cancellationToken).ConfigureAwait(false));
-            var root = document.RootElement;
-
-            var imageUrl = TryGetString(root, "thumbnail", "source") ?? TryGetString(root, "originalimage", "source");
-            var details = TryGetString(root, "extract");
-            var sourceUrl = TryGetString(root, "content_urls", "desktop", "page");
-
-            if (string.IsNullOrWhiteSpace(imageUrl) && string.IsNullOrWhiteSpace(details))
-            {
-                return firearm;
-            }
-
-            return firearm with
-            {
-                ImageUrl = imageUrl,
-                Details = string.IsNullOrWhiteSpace(details) ? firearm.Details : details,
-                DetailSourceUrl = string.IsNullOrWhiteSpace(sourceUrl) ? firearm.DetailSourceUrl : sourceUrl
-            };
+            return firearm;
         }
         catch (OperationCanceledException)
         {
@@ -343,9 +345,9 @@ public partial class ImfdbClient : IImfdbClient
         }
     }
 
-    private static async Task<string?> FindWikipediaTitleAsync(string firearmName, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<string>> FindWikipediaTitlesAsync(string firearmName, CancellationToken cancellationToken)
     {
-        var searchUri = new Uri(WikipediaOpenSearchUri + $"?action=opensearch&search={Uri.EscapeDataString(firearmName)}&limit=1&namespace=0&format=json");
+        var searchUri = new Uri(WikipediaOpenSearchUri + $"?action=opensearch&search={Uri.EscapeDataString(firearmName)}&limit=5&namespace=0&format=json");
         using var document = JsonDocument.Parse(await GetStringAsync(searchUri, cancellationToken).ConfigureAwait(false));
         var root = document.RootElement;
         if (root.ValueKind != JsonValueKind.Array ||
@@ -353,10 +355,39 @@ public partial class ImfdbClient : IImfdbClient
             root[1].ValueKind != JsonValueKind.Array ||
             root[1].GetArrayLength() == 0)
         {
-            return null;
+            return Array.Empty<string>();
         }
 
-        return root[1][0].GetString();
+        return root[1]
+            .EnumerateArray()
+            .Select(static candidate => candidate.GetString())
+            .Where(static candidate => !string.IsNullOrWhiteSpace(candidate))
+            .Select(static candidate => candidate!)
+            .ToArray();
+    }
+
+    private static bool IsLikelyFirearmWikipediaMatch(string firearmName, string candidateTitle, string? description, string? details)
+    {
+        var context = string.Join(' ', description, details);
+        if (!FirearmContextRegex().IsMatch(context))
+        {
+            return false;
+        }
+
+        var normalizedFirearmName = NormalizeTitle(firearmName);
+        var normalizedCandidateTitle = NormalizeTitle(candidateTitle);
+        if (normalizedCandidateTitle.Equals(normalizedFirearmName, StringComparison.OrdinalIgnoreCase) ||
+            normalizedCandidateTitle.Contains(normalizedFirearmName, StringComparison.OrdinalIgnoreCase) ||
+            normalizedFirearmName.Contains(normalizedCandidateTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var candidateTokens = normalizedCandidateTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return normalizedFirearmName
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(static token => token.Length >= 3 || token.Any(char.IsDigit))
+            .Any(candidateTokens.Contains);
     }
 
     private static string? TryGetString(JsonElement element, params string[] path)
@@ -485,6 +516,9 @@ public partial class ImfdbClient : IImfdbClient
 
     [GeneratedRegex("\\s+")]
     private static partial Regex WhitespaceRegex();
+
+    [GeneratedRegex("\\b(firearm|gun|pistol|revolver|rifle|shotgun|carbine|handgun|derringer|submachine|machine gun|assault weapon|weapon|cartridge|ammunition|caliber|calibre|semi-automatic|automatic)\\b", RegexOptions.IgnoreCase)]
+    private static partial Regex FirearmContextRegex();
 
     [GeneratedRegex("\\[\\[(?:[^\\]|]+\\|)?([^\\]]+)\\]\\]|\\{\\{[^}]+\\}\\}|\\[https?://[^\\s]+\\s*([^\\]]*)\\]|'{2,}|={2,}|\\[\\[Image:[^\\]]+\\]\\]", RegexOptions.IgnoreCase)]
     private static partial Regex WikiMarkupRegex();
