@@ -68,10 +68,15 @@
             }
             #${rowId} .imfdb-scroll {
                 display: flex;
-                gap: .9em;
+                gap: 1.1em;
                 overflow-x: auto;
-                padding: .25em 0 .6em;
+                padding: .35em 0 .75em;
                 scroll-snap-type: x proximity;
+            }
+            #${rowId} .imfdb-card-source {
+                font-size: .75em;
+                font-weight: 400;
+                opacity: .72;
             }
             #${rowId} .imfdb-source-link {
                 color: inherit;
@@ -84,37 +89,37 @@
                 text-decoration: underline;
             }
             #${rowId} .imfdb-card {
-                background: rgba(255, 255, 255, .08);
-                border: 1px solid rgba(255, 255, 255, .12);
-                border-radius: 8px;
+                background: transparent;
+                border: 0;
                 color: inherit;
                 cursor: pointer;
-                flex: 0 0 14.5em;
-                min-height: 13.25em;
-                overflow: hidden;
+                flex: 0 0 clamp(12.5em, 18vw, 17em);
+                min-width: 0;
                 padding: 0;
                 scroll-snap-align: start;
-                text-align: center;
+                text-align: left;
             }
             #${rowId} .imfdb-card:hover,
             #${rowId} .imfdb-card:focus {
-                background: rgba(255, 255, 255, .14);
                 outline: 2px solid rgba(255, 255, 255, .34);
                 outline-offset: 2px;
             }
             #${rowId} .imfdb-name {
                 display: block;
-                font-size: 1.05em;
-                font-weight: 700;
-                line-height: 1.25;
-                padding: .8em .85em .95em;
+                font-size: .92em;
+                font-weight: 500;
+                line-height: 1.3;
+                opacity: .92;
+                padding: .55em .15em 0;
             }
             #${rowId} .imfdb-image {
                 align-items: center;
-                aspect-ratio: 4 / 3;
-                background: rgba(0, 0, 0, .24);
+                aspect-ratio: 16 / 10;
+                background: rgba(0, 0, 0, .18);
+                border-radius: 4px;
                 display: flex;
                 justify-content: center;
+                overflow: hidden;
                 width: 100%;
             }
             #${rowId} .imfdb-image img {
@@ -122,9 +127,15 @@
                 object-fit: contain;
                 width: 100%;
             }
+            #${rowId} .imfdb-card:hover .imfdb-image,
+            #${rowId} .imfdb-card:focus .imfdb-image {
+                filter: brightness(1.08);
+            }
             #${rowId} .imfdb-placeholder {
+                font-size: .88em;
                 opacity: .55;
                 padding: 1em;
+                text-align: center;
             }
             #${rowId} dialog {
                 background: rgb(32, 32, 32);
@@ -257,7 +268,7 @@
 
         const source = result.imfdbUrl || result.sourceUrl;
         const sourceLink = source ? `<a class="imfdb-source-link" href="${escapeAttribute(source)}" target="_blank" rel="noopener noreferrer">IMFDB</a>` : 'IMFDB';
-        row.innerHTML = `<h2 class="sectionTitle">Firearms <span style="font-size:.75em;font-weight:400;opacity:.72">from ${sourceLink}</span></h2><div class="imfdb-scroll"></div>`;
+        row.innerHTML = `<h2 class="sectionTitle">Firearms <span class="imfdb-card-source">from ${sourceLink}</span></h2><div class="imfdb-scroll"></div>`;
 
         const scroller = row.querySelector('.imfdb-scroll');
         firearms.forEach((firearm) => {
