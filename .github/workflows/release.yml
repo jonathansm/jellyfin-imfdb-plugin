@@ -49,29 +49,42 @@ jobs:
           REPO="${GITHUB_REPOSITORY#*/}"
           SOURCE_URL="https://github.com/${OWNER}/${REPO}/releases/download/v${VERSION}/jellyfin-plugin-imfdb_${VERSION}.zip"
           TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          export VERSION CHECKSUM OWNER SOURCE_URL TIMESTAMP
           mkdir -p public
-          cat > public/manifest.json <<EOF
-          [
-            {
-              "guid": "0282b499-528f-4185-a301-0a0c333139a7",
-              "name": "IMFDB",
-              "description": "Adds IMFDB firearm information for Jellyfin movies and shows.",
-              "overview": "Adds IMFDB firearm cards to Jellyfin movie and show pages.",
-              "owner": "${OWNER}",
-              "category": "Metadata",
-              "versions": [
-                {
-                  "version": "${VERSION}",
+          python - <<'PY'
+          import json
+          import os
+
+          version = os.environ["VERSION"]
+          checksum = os.environ["CHECKSUM"]
+          owner = os.environ["OWNER"]
+          source_url = os.environ["SOURCE_URL"]
+          timestamp = os.environ["TIMESTAMP"]
+
+          with open("manifest.json", encoding="utf-8") as manifest_file:
+              manifest = json.load(manifest_file)
+
+          plugin = manifest[0]
+          plugin["owner"] = owner
+          versions = plugin.setdefault("versions", [])
+          current = next((entry for entry in versions if entry.get("version") == version), None)
+          if current is None:
+              current = {
+                  "version": version,
                   "changelog": "See the GitHub release notes for this version.",
-                  "targetAbi": "10.11.0.0",
-                  "sourceUrl": "${SOURCE_URL}",
-                  "checksum": "${CHECKSUM}",
-                  "timestamp": "${TIMESTAMP}"
-                }
-              ]
-            }
-          ]
-          EOF
+                  "targetAbi": "10.11.0.0"
+              }
+              versions.insert(0, current)
+
+          current["sourceUrl"] = source_url
+          current["checksum"] = checksum
+          current["timestamp"] = timestamp
+          plugin["versions"] = sorted(versions, key=lambda entry: entry.get("version", ""), reverse=True)
+
+          with open("public/manifest.json", "w", encoding="utf-8") as manifest_file:
+              json.dump(manifest, manifest_file, indent=2)
+              manifest_file.write("\n")
+          PY
 
       - name: Deploy manifest to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4

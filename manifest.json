@@ -12,8 +12,16 @@
         "changelog": "Refreshes firearm card styling, opens IMFDB links externally in Jellyfin mobile apps, and filters non-firearm Wikipedia matches.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.1.0/jellyfin-plugin-imfdb_0.1.1.0.zip",
-        "checksum": "GENERATED_BY_RELEASE_WORKFLOW",
+        "checksum": "52c022c9c737c676fe028abffc838f8e",
         "timestamp": "2026-04-22T00:00:00Z"
+      },
+      {
+        "version": "0.1.0.0",
+        "changelog": "Initial plugin implementation.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.0.0/jellyfin-plugin-imfdb_0.1.0.0.zip",
+        "checksum": "fc9c74a98ff1c363086c85e667c68e5f",
+        "timestamp": "2026-04-20T00:00:00Z"
       }
     ]
   }
