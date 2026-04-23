@@ -12,8 +12,8 @@
         "changelog": "Restyles firearm cards to better match native Jellyfin cards, hides the scrollbar, and adds previous and next controls.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.1.2/jellyfin-plugin-imfdb_0.1.1.2.zip",
-        "checksum": "4270ccc115b8d5f1eefbff6716dff6ee",
-        "timestamp": "2026-04-23T02:13:29Z"
+        "checksum": "0ce9d226b045f5ff601441e0dc6bb1c1",
+        "timestamp": "2026-04-23T02:23:57Z"
       },
       {
         "version": "0.1.1.1",
