@@ -8,12 +8,20 @@
     "category": "Metadata",
     "versions": [
       {
+        "version": "0.1.1.2",
+        "changelog": "Restyles firearm cards to better match native Jellyfin cards, hides the scrollbar, and adds previous and next controls.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.1.2/jellyfin-plugin-imfdb_0.1.1.2.zip",
+        "checksum": "GENERATED_BY_RELEASE_WORKFLOW",
+        "timestamp": "2026-04-22T00:00:00Z"
+      },
+      {
         "version": "0.1.1.1",
         "changelog": "Fixes external link handling on desktop web and improves Jellyfin mobile app compatibility.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.1.1/jellyfin-plugin-imfdb_0.1.1.1.zip",
-        "checksum": "GENERATED_BY_RELEASE_WORKFLOW",
-        "timestamp": "2026-04-22T00:00:00Z"
+        "checksum": "fe92235b09b6ff5cbec5183754741ce2",
+        "timestamp": "2026-04-22T21:57:12Z"
       },
       {
         "version": "0.1.1.0",

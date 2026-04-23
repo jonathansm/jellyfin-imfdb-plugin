@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1.2
+
+- Restyles firearm cards with Jellyfin native card, chapter image, text, and scroll button classes.
+- Hides the firearm row scrollbar and adds previous and next controls.
+- Removes the IMFDB source text from the Firearms heading.
+
 ## 0.1.1.1
 
 - Fixes IMFDB external link handling so desktop web opens a new tab without replacing the current Jellyfin page.

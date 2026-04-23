@@ -118,77 +118,49 @@
             #${rowId} {
                 clear: both;
                 margin: 1.5em 0;
+                position: relative;
             }
             #${rowId} .imfdb-scroll {
                 display: flex;
-                gap: 1.1em;
                 overflow-x: auto;
+                overflow-y: hidden;
                 padding: .35em 0 .75em;
                 scroll-snap-type: x proximity;
+                scrollbar-width: none;
             }
-            #${rowId} .imfdb-card-source {
-                font-size: .75em;
-                font-weight: 400;
-                opacity: .72;
-            }
-            #${rowId} .imfdb-source-link {
-                color: inherit;
-                opacity: .72;
-                text-decoration: none;
-            }
-            #${rowId} .imfdb-source-link:hover,
-            #${rowId} .imfdb-source-link:focus {
-                opacity: 1;
-                text-decoration: underline;
+            #${rowId} .imfdb-scroll::-webkit-scrollbar {
+                display: none;
             }
             #${rowId} .imfdb-card {
-                background: transparent;
-                border: 0;
-                color: inherit;
-                cursor: pointer;
-                flex: 0 0 clamp(12.5em, 18vw, 17em);
-                min-width: 0;
-                padding: 0;
+                flex: 0 0 auto;
                 scroll-snap-align: start;
-                text-align: left;
             }
-            #${rowId} .imfdb-card:hover,
-            #${rowId} .imfdb-card:focus {
-                outline: 2px solid rgba(255, 255, 255, .34);
-                outline-offset: 2px;
+            #${rowId} .imfdb-card .cardBox {
+                margin-left: .45em;
+                margin-right: .45em;
             }
-            #${rowId} .imfdb-name {
-                display: block;
-                font-size: .92em;
-                font-weight: 500;
-                line-height: 1.3;
-                opacity: .92;
-                padding: .55em .15em 0;
+            #${rowId} .imfdb-card:first-child .cardBox {
+                margin-left: 0;
             }
-            #${rowId} .imfdb-image {
-                align-items: center;
-                aspect-ratio: 16 / 10;
-                background: rgba(0, 0, 0, .18);
-                border-radius: 4px;
-                display: flex;
-                justify-content: center;
-                overflow: hidden;
-                width: 100%;
+            #${rowId} .imfdb-card:last-child .cardBox {
+                margin-right: 0;
             }
-            #${rowId} .imfdb-image img {
-                height: 100%;
-                object-fit: contain;
-                width: 100%;
-            }
-            #${rowId} .imfdb-card:hover .imfdb-image,
-            #${rowId} .imfdb-card:focus .imfdb-image {
-                filter: brightness(1.08);
+            #${rowId} .imfdb-card .cardText {
+                white-space: normal;
             }
             #${rowId} .imfdb-placeholder {
                 font-size: .88em;
                 opacity: .55;
                 padding: 1em;
                 text-align: center;
+            }
+            #${rowId} .imfdb-scrollbuttons-button[disabled] {
+                opacity: .25;
+            }
+            @media (min-width: 75em) {
+                #${rowId} .imfdb-card.overflowBackdropCard {
+                    width: 25.5vw;
+                }
             }
             #${rowId} dialog {
                 background: rgb(32, 32, 32);
@@ -269,9 +241,39 @@
         removeExistingRow();
         const row = document.createElement('section');
         row.id = rowId;
-        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="imfdb-scroll"><div class="imfdb-card"><span class="imfdb-name">Searching IMFDB...</span></div></div>';
+        row.className = 'verticalSection imfdb-section';
+        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="itemsContainer scrollSlider imfdb-scroll"><div class="card overflowBackdropCard imfdb-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-backdrop"></div><div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer"><span class="imfdb-placeholder">Searching IMFDB...</span></div></div><div class="cardFooter cardFooter-transparent"><div class="cardText cardTextCentered">&nbsp;</div></div></div></div></div>';
         anchor.insertAdjacentElement('afterend', row);
         return row;
+    }
+
+    function scrollFirearms(scroller, direction) {
+        if (!scroller) {
+            return;
+        }
+
+        var amount = Math.max(scroller.clientWidth * .85, 320);
+        scroller.scrollLeft += direction * amount;
+        window.setTimeout(function () {
+            updateScrollButtons(scroller);
+        }, 250);
+    }
+
+    function updateScrollButtons(scroller) {
+        if (!scroller) {
+            return;
+        }
+
+        var row = document.getElementById(rowId);
+        var previousButton = row ? row.querySelector('.imfdb-scroll-previous') : null;
+        var nextButton = row ? row.querySelector('.imfdb-scroll-next') : null;
+        if (!previousButton || !nextButton) {
+            return;
+        }
+
+        var maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
+        previousButton.disabled = scroller.scrollLeft <= 2;
+        nextButton.disabled = maxScrollLeft <= 2 || scroller.scrollLeft >= maxScrollLeft - 2;
     }
 
     function showDetails(firearm) {
@@ -333,34 +335,57 @@
             return;
         }
 
-        const source = result.imfdbUrl || result.sourceUrl;
-        const sourceLink = source ? `<a class="imfdb-source-link" href="${escapeAttribute(source)}" target="_blank" rel="noopener noreferrer">IMFDB</a>` : 'IMFDB';
-        row.innerHTML = `<h2 class="sectionTitle">Firearms <span class="imfdb-card-source">from ${sourceLink}</span></h2><div class="imfdb-scroll"></div>`;
+        row.className = 'verticalSection imfdb-section';
+        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="emby-scrollbuttons"><button type="button" class="emby-scrollbuttons-button paper-icon-button-light imfdb-scroll-previous" title="Previous"><span class="material-icons chevron_left" aria-hidden="true"></span></button><button type="button" class="emby-scrollbuttons-button paper-icon-button-light imfdb-scroll-next" title="Next"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div><div class="itemsContainer scrollSlider imfdb-scroll"></div>';
 
-        const sourceLinkElement = row.querySelector('.imfdb-source-link');
-        if (sourceLinkElement) {
-            sourceLinkElement.addEventListener('click', function (event) {
-                event.preventDefault();
-                openExternalUrl(source);
+        const scroller = row.querySelector('.imfdb-scroll');
+        const previousButton = row.querySelector('.imfdb-scroll-previous');
+        const nextButton = row.querySelector('.imfdb-scroll-next');
+        if (previousButton) {
+            previousButton.addEventListener('click', function () {
+                scrollFirearms(scroller, -1);
             });
         }
 
-        const scroller = row.querySelector('.imfdb-scroll');
+        if (nextButton) {
+            nextButton.addEventListener('click', function () {
+                scrollFirearms(scroller, 1);
+            });
+        }
+
+        if (scroller) {
+            scroller.addEventListener('scroll', function () {
+                updateScrollButtons(scroller);
+            });
+        }
+
         firearms.forEach((firearm) => {
             const card = document.createElement('button');
+            const imageStyle = firearm.imageUrl ? ` style="${escapeAttribute('background-image:url("' + escapeCssUrl(firearm.imageUrl) + '")')}"` : '';
             card.type = 'button';
-            card.className = 'imfdb-card';
+            card.className = 'card overflowBackdropCard card-hoverable imfdb-card';
             card.innerHTML = `
-                <span class="imfdb-image">
-                    ${firearm.imageUrl ? `<img src="${escapeAttribute(firearm.imageUrl)}" alt="${escapeAttribute(firearm.name)}" loading="lazy">` : '<span class="imfdb-placeholder">No image available</span>'}
-                </span>
-                <span class="imfdb-name">${escapeHtml(firearm.name)}</span>
+                <div class="cardBox">
+                    <div class="cardScalable">
+                        <div class="cardPadder cardPadder-backdrop"></div>
+                        <div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer coveredImage imfdb-image"${imageStyle} aria-label="${escapeAttribute(firearm.name)}" role="img">
+                            ${firearm.imageUrl ? '' : '<span class="imfdb-placeholder">No image available</span>'}
+                        </div>
+                        <div class="cardOverlayContainer"></div>
+                    </div>
+                    <div class="cardFooter cardFooter-transparent">
+                        <div class="cardText cardTextCentered"><bdi>${escapeHtml(firearm.name)}</bdi></div>
+                    </div>
+                </div>
             `;
             card.addEventListener('click', function () {
                 showDetails(firearm);
             });
             scroller.appendChild(card);
         });
+        window.setTimeout(function () {
+            updateScrollButtons(scroller);
+        }, 0);
     }
 
     function escapeHtml(value) {
@@ -371,6 +396,12 @@
 
     function escapeAttribute(value) {
         return escapeHtml(value).replace(/`/g, '&#96;');
+    }
+
+    function escapeCssUrl(value) {
+        return String(value || '').replace(/['"\\\n\r]/g, function (character) {
+            return '\\' + character;
+        });
     }
 
     async function update() {
