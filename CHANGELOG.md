@@ -2,7 +2,7 @@
 
 ## 0.1.2.0
 
-- Uses IMFDB Browser only to identify the matching IMFDB title page.
+- Uses IMFDB wiki search to identify the matching IMFDB title page.
 - Builds firearm cards directly from IMFDB wiki sections for more complete title coverage.
 - Pulls firearm section prose, first image, and image captions from IMFDB wiki source data.
 - Removes legacy appearance/detail-source API fields that were tied to the old Browser table enrichment.

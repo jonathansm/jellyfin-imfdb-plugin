@@ -16,11 +16,11 @@ Jellyfin IMFDB is a Jellyfin server plugin that looks up movies and series in IM
 
 ## Important Limitations
 
-This plugin depends on web scraping and unofficial public pages. IMFDB does not provide a stable first-party JSON API for all of the data this plugin needs. The plugin currently uses IMFDB Browser only to find the matching IMFDB title page, then reads firearm cards, section text, captions, and images from IMFDB wiki source data when the public endpoint allows it.
+This plugin depends on unofficial public wiki data. IMFDB does not provide a stable first-party JSON API for all of the data this plugin needs. The plugin currently searches IMFDB's MediaWiki API to find the matching title page, then reads firearm cards, section text, captions, and images from IMFDB wiki source data when the public endpoint allows it.
 
 That means this plugin can break if:
 
-- IMFDB Browser changes its HTML structure.
+- IMFDB wiki search results change shape or ranking behavior.
 - IMFDB wiki source responses change shape, become unavailable, or block automated requests.
 - IMFDB changes page names or section anchors.
 - The File Transformation plugin changes its registration API.

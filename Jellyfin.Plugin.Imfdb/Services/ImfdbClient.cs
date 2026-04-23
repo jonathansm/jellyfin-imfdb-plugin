@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.Imfdb.Services;
 /// </summary>
 public partial class ImfdbClient : IImfdbClient
 {
-    private static readonly Uri BrowserBaseUri = new("https://browser.imfdb.org/");
+    private static readonly Uri WikiBaseUri = new("https://www.imfdb.org/wiki/");
     private static readonly Uri WikiApiUri = new("https://www.imfdb.org/api.php");
     private static readonly Uri WikiImageBaseUri = new("https://www.imfdb.org/images/");
     private static readonly HttpClient HttpClient = CreateHttpClient();
@@ -42,21 +42,13 @@ public partial class ImfdbClient : IImfdbClient
 
         try
         {
-            var browserMatch = await FindBrowserMatchAsync(title, year, cancellationToken).ConfigureAwait(false);
-            if (browserMatch is not null)
+            var wikiMatch = await FindWikiMatchAsync(title, year, cancellationToken).ConfigureAwait(false);
+            if (wikiMatch is not null)
             {
-                var sourcePageUrl = await ReadBrowserSourcePageUrlAsync(browserMatch.Value.Url, cancellationToken).ConfigureAwait(false);
-                if (sourcePageUrl is not null)
+                var firearms = await ReadWikiPageAsync(wikiMatch.Value.Title, wikiMatch.Value.Url, cancellationToken).ConfigureAwait(false);
+                if (firearms.Count > 0)
                 {
-                    var pageTitle = GetWikiPageTitle(sourcePageUrl);
-                    if (!string.IsNullOrWhiteSpace(pageTitle))
-                    {
-                        var firearms = await ReadWikiPageAsync(pageTitle, sourcePageUrl, cancellationToken).ConfigureAwait(false);
-                        if (firearms.Count > 0)
-                        {
-                            return (browserMatch.Value.Title, sourcePageUrl.ToString(), firearms);
-                        }
-                    }
+                    return (wikiMatch.Value.Title, wikiMatch.Value.Url.ToString(), firearms);
                 }
             }
         }
@@ -82,39 +74,33 @@ public partial class ImfdbClient : IImfdbClient
         return client;
     }
 
-    private async Task<(string Title, Uri Url)?> FindBrowserMatchAsync(string title, int? year, CancellationToken cancellationToken)
-    {
-        var candidates = new[]
-        {
-            $"media?q={Uri.EscapeDataString(title)}"
-        };
-
-        foreach (var path in candidates)
-        {
-            var uri = new Uri(BrowserBaseUri, path);
-            var html = await GetStringAsync(uri, cancellationToken).ConfigureAwait(false);
-            var match = SelectBestMediaLink(html, title, year);
-            if (match is not null)
-            {
-                return match;
-            }
-        }
-
-        return null;
-    }
-
-    private static (string Title, Uri Url)? SelectBestMediaLink(string html, string title, int? year)
+    private static async Task<(string Title, Uri Url)?> FindWikiMatchAsync(string title, int? year, CancellationToken cancellationToken)
     {
         var normalizedTitle = NormalizeTitle(title);
-        var matches = BrowserMediaLinkRegex().Matches(html);
-        (string Title, Uri Url, int Score)? best = null;
-
-        foreach (Match match in matches)
+        var uri = new Uri(WikiApiUri + $"?action=query&list=search&format=json&srlimit=10&srsearch={Uri.EscapeDataString(title)}");
+        using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
+        if (!document.RootElement.TryGetProperty("query", out var query) ||
+            !query.TryGetProperty("search", out var searchResults) ||
+            searchResults.ValueKind != JsonValueKind.Array)
         {
-            var relativeUrl = WebUtility.HtmlDecode(match.Groups["url"].Value);
-            var linkText = CleanText(match.Groups["title"].Value);
-            var rowTail = CleanText(match.Groups["tail"].Value);
-            var score = ScoreTitle(linkText, normalizedTitle, year, rowTail);
+            return null;
+        }
+
+        (string Title, Uri Url, int Score)? best = null;
+        foreach (var result in searchResults.EnumerateArray())
+        {
+            var pageTitle = result.TryGetProperty("title", out var titleElement)
+                ? titleElement.GetString()
+                : null;
+            if (string.IsNullOrWhiteSpace(pageTitle))
+            {
+                continue;
+            }
+
+            var snippet = result.TryGetProperty("snippet", out var snippetElement)
+                ? CleanText(snippetElement.GetString() ?? string.Empty)
+                : string.Empty;
+            var score = ScoreTitle(pageTitle, normalizedTitle, year, snippet);
             if (score <= 0)
             {
                 continue;
@@ -122,18 +108,11 @@ public partial class ImfdbClient : IImfdbClient
 
             if (best is null || score > best.Value.Score)
             {
-                best = (linkText, new Uri(BrowserBaseUri, relativeUrl.TrimStart('/')), score);
+                best = (pageTitle, GetWikiPageUrl(pageTitle), score);
             }
         }
 
         return best is null ? null : (best.Value.Title, best.Value.Url);
-    }
-
-    private async Task<Uri?> ReadBrowserSourcePageUrlAsync(Uri mediaUrl, CancellationToken cancellationToken)
-    {
-        var html = await GetStringAsync(mediaUrl, cancellationToken).ConfigureAwait(false);
-        var sourcePageUrl = FindImfdbSourcePageUrl(html);
-        return string.IsNullOrWhiteSpace(sourcePageUrl) ? null : new Uri(sourcePageUrl);
     }
 
     private async Task<IReadOnlyList<FirearmResult>> ReadWikiPageAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
@@ -149,17 +128,6 @@ public partial class ImfdbClient : IImfdbClient
                 section.Details))
             .DistinctBy(static item => NormalizeTitle(item.Name))
             .ToArray();
-    }
-
-    private static string? FindImfdbSourcePageUrl(string html)
-    {
-        var match = ImfdbSourcePageLinkRegex().Match(html);
-        if (!match.Success)
-        {
-            return null;
-        }
-
-        return WebUtility.HtmlDecode(match.Groups["url"].Value);
     }
 
     private static async Task<IReadOnlyList<WikiFirearmSection>> ReadWikiSectionsAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
@@ -194,10 +162,9 @@ public partial class ImfdbClient : IImfdbClient
         return sections;
     }
 
-    private static string? GetWikiPageTitle(Uri pageUrl)
+    private static Uri GetWikiPageUrl(string pageTitle)
     {
-        var pageTitle = pageUrl.Segments.LastOrDefault();
-        return string.IsNullOrWhiteSpace(pageTitle) ? null : WebUtility.UrlDecode(pageTitle).Replace('_', ' ');
+        return new Uri(WikiBaseUri, Uri.EscapeDataString(pageTitle.Replace(' ', '_')));
     }
 
     private static string ExtractSectionText(string wikitext, Match heading)
@@ -409,12 +376,6 @@ public partial class ImfdbClient : IImfdbClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }
-
-    [GeneratedRegex("<a\\s+href=\"(?<url>/media/\\d+)\"[^>]*>(?<title>.*?)</a>(?<tail>[^<]*(?:<[^a][^>]*>[^<]*){0,8})", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex BrowserMediaLinkRegex();
-
-    [GeneratedRegex("<a\\s+href=\"(?<url>https://www\\.imfdb\\.org/wiki/[^\"]+)\"[^>]*>\\s*View on IMFDB", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex ImfdbSourcePageLinkRegex();
 
     [GeneratedRegex("^==+\\s*(?<name>[^=]+?)\\s*==+\\s*$", RegexOptions.Multiline)]
     private static partial Regex WikiHeadingRegex();

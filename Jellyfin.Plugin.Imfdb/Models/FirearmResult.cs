@@ -4,7 +4,7 @@ namespace Jellyfin.Plugin.Imfdb.Models;
 /// Firearm grouped for the client card row.
 /// </summary>
 /// <param name="Name">Firearm name.</param>
-/// <param name="Url">IMFDB or IMFDB Browser firearm URL.</param>
+/// <param name="Url">IMFDB firearm URL.</param>
 /// <param name="SourceSectionUrl">Matched title's IMFDB section URL for this firearm.</param>
 /// <param name="ImageUrl">Best available firearm image URL.</param>
 /// <param name="Summary">Short summary for the card.</param>
