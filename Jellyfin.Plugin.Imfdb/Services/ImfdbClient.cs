@@ -59,13 +59,6 @@ public partial class ImfdbClient : IImfdbClient
                     }
                 }
             }
-
-            var wikiMatch = await FindWikiMatchAsync(title, year, imdbId, cancellationToken).ConfigureAwait(false);
-            if (wikiMatch is not null)
-            {
-                var firearms = await ReadWikiPageAsync(wikiMatch.Value.Title, wikiMatch.Value.Url, cancellationToken).ConfigureAwait(false);
-                return (wikiMatch.Value.Title, wikiMatch.Value.Url.ToString(), firearms);
-            }
         }
         catch (OperationCanceledException)
         {
@@ -141,44 +134,6 @@ public partial class ImfdbClient : IImfdbClient
         var html = await GetStringAsync(mediaUrl, cancellationToken).ConfigureAwait(false);
         var sourcePageUrl = FindImfdbSourcePageUrl(html);
         return string.IsNullOrWhiteSpace(sourcePageUrl) ? null : new Uri(sourcePageUrl);
-    }
-
-    private async Task<(string Title, Uri Url)?> FindWikiMatchAsync(string title, int? year, string? imdbId, CancellationToken cancellationToken)
-    {
-        var search = !string.IsNullOrWhiteSpace(imdbId)
-            ? $"{title} {year?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty} {imdbId}"
-            : year.HasValue ? $"{title} {year.Value}" : title;
-        var uri = new Uri(WikiApiUri + $"?action=query&list=search&srnamespace=0&srlimit=10&format=json&srsearch={Uri.EscapeDataString(search)}");
-        using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
-        if (!document.RootElement.TryGetProperty("query", out var query) ||
-            !query.TryGetProperty("search", out var results))
-        {
-            return null;
-        }
-
-        (string Title, int Score)? best = null;
-        foreach (var result in results.EnumerateArray())
-        {
-            var pageTitle = result.GetProperty("title").GetString();
-            if (string.IsNullOrWhiteSpace(pageTitle))
-            {
-                continue;
-            }
-
-            var score = ScoreTitle(pageTitle, NormalizeTitle(title), year, pageTitle);
-            if (best is null || score > best.Value.Score)
-            {
-                best = (pageTitle, score);
-            }
-        }
-
-        if (best is null || best.Value.Score <= 0)
-        {
-            return null;
-        }
-
-        var pageUrl = new Uri("https://www.imfdb.org/wiki/" + Uri.EscapeDataString(best.Value.Title.Replace(' ', '_')));
-        return (best.Value.Title, pageUrl);
     }
 
     private async Task<IReadOnlyList<FirearmResult>> ReadWikiPageAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)

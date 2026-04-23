@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -144,9 +146,8 @@ public class FileTransformationRegistrationService : IHostedService
     private static Guid GuidFromPattern(string fileNamePattern)
     {
         var bytes = TransformationId.ToByteArray();
-        var hash = fileNamePattern.Aggregate(0, static (current, character) => HashCode.Combine(current, character));
-        var hashBytes = BitConverter.GetBytes(hash);
-        Array.Copy(hashBytes, 0, bytes, 12, hashBytes.Length);
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(fileNamePattern));
+        Array.Copy(hashBytes, 0, bytes, 12, bytes.Length - 12);
         return new Guid(bytes);
     }
 }
