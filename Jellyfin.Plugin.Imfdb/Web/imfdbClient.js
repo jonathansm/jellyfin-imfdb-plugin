@@ -249,7 +249,6 @@
             <p class="imfdb-dialog-summary">${escapeHtml(firearm.summary || 'Listed on IMFDB.')}</p>
             <p class="imfdb-dialog-details">${escapeHtml(firearm.details || 'No additional firearm details were available from IMFDB.')}</p>
             <div class="imfdb-dialog-actions">
-                ${firearm.detailSourceUrl ? `<button type="button" class="imfdb-action imfdb-details-source">Details Source</button>` : ''}
                 ${imfdbUrl ? `<button type="button" class="imfdb-action imfdb-open">Open IMFDB</button>` : ''}
                 <button type="button" class="imfdb-action imfdb-close">Close</button>
             </div>
@@ -269,12 +268,6 @@
             });
         }
 
-        const detailsSourceButton = dialog.querySelector('.imfdb-details-source');
-        if (detailsSourceButton) {
-            detailsSourceButton.addEventListener('click', function () {
-                openExternalUrl(firearm.detailSourceUrl);
-            });
-        }
         dialog.addEventListener('close', function () {
             dialog.remove();
         });

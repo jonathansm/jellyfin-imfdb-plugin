@@ -232,7 +232,7 @@ public partial class ImfdbClient : IImfdbClient
                 section.SourceUrl,
                 section.SourceUrl,
                 section.ImageUrl,
-                Truncate(section.Details ?? "Firearm listed on IMFDB.", 180),
+                section.Caption ?? Truncate(section.Details ?? "Firearm listed on IMFDB.", 180),
                 section.Details,
                 section.SourceUrl,
                 Array.Empty<FirearmAppearance>()))
@@ -301,7 +301,7 @@ public partial class ImfdbClient : IImfdbClient
                     {
                         SourceSectionUrl = section.SourceUrl ?? firearm.SourceSectionUrl,
                         ImageUrl = section.ImageUrl ?? firearm.ImageUrl,
-                        Summary = string.IsNullOrWhiteSpace(section.Details) ? firearm.Summary : Truncate(section.Details, 180),
+                        Summary = section.Caption ?? (string.IsNullOrWhiteSpace(section.Details) ? firearm.Summary : Truncate(section.Details, 180)),
                         Details = string.IsNullOrWhiteSpace(section.Details) ? firearm.Details : section.Details,
                         DetailSourceUrl = section.SourceUrl ?? firearm.DetailSourceUrl
                     };
@@ -343,9 +343,9 @@ public partial class ImfdbClient : IImfdbClient
 
             var sectionText = ExtractSectionText(wikiText, heading);
             var details = ExtractSectionDetails(sectionText);
-            var imageUrl = ExtractFirstImageUrl(sectionText);
+            var image = ExtractFirstImage(sectionText);
             var sourceUrl = pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_'));
-            sections.Add(new WikiFirearmSection(name, details, imageUrl, sourceUrl));
+            sections.Add(new WikiFirearmSection(name, details, image?.ImageUrl, image?.Caption, sourceUrl));
         }
 
         return sections;
@@ -410,7 +410,33 @@ public partial class ImfdbClient : IImfdbClient
         return " ";
     }
 
-    private static string? ExtractFirstImageUrl(string section)
+    private static WikiImage? ExtractFirstImage(string section)
+    {
+        var markup = ExtractFirstFileMarkup(section);
+        if (string.IsNullOrWhiteSpace(markup))
+        {
+            return null;
+        }
+
+        var fields = SplitWikiFileMarkup(markup);
+        if (fields.Count == 0)
+        {
+            return null;
+        }
+
+        var fileName = WikiFilePrefixRegex().Replace(fields[0], string.Empty).Trim().Replace(' ', '_');
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        var hash = Convert.ToHexString(MD5.HashData(System.Text.Encoding.UTF8.GetBytes(fileName))).ToLowerInvariant();
+        var imageUrl = new Uri(WikiImageBaseUri, $"{hash[0]}/{hash[..2]}/{Uri.EscapeDataString(fileName)}").ToString();
+        var caption = fields.Count > 1 ? CleanWikiText(fields[^1]) : null;
+        return new WikiImage(imageUrl, string.IsNullOrWhiteSpace(caption) ? null : caption);
+    }
+
+    private static string? ExtractFirstFileMarkup(string section)
     {
         var image = WikiFileRegex().Match(section);
         if (!image.Success)
@@ -418,14 +444,85 @@ public partial class ImfdbClient : IImfdbClient
             return null;
         }
 
-        var fileName = WebUtility.HtmlDecode(image.Groups["file"].Value).Replace(' ', '_');
-        if (string.IsNullOrWhiteSpace(fileName))
+        var depth = 0;
+        for (var i = image.Index; i < section.Length - 1; i++)
         {
-            return null;
+            var token = section.AsSpan(i, 2);
+            if (token.SequenceEqual("[["))
+            {
+                depth++;
+                i++;
+                continue;
+            }
+
+            if (token.SequenceEqual("]]"))
+            {
+                depth--;
+                i++;
+                if (depth == 0)
+                {
+                    return section[image.Index..(i + 1)];
+                }
+            }
         }
 
-        var hash = Convert.ToHexString(MD5.HashData(System.Text.Encoding.UTF8.GetBytes(fileName))).ToLowerInvariant();
-        return new Uri(WikiImageBaseUri, $"{hash[0]}/{hash[..2]}/{Uri.EscapeDataString(fileName)}").ToString();
+        return null;
+    }
+
+    private static IReadOnlyList<string> SplitWikiFileMarkup(string markup)
+    {
+        var content = markup[2..^2];
+        var fields = new List<string>();
+        var start = 0;
+        var linkDepth = 0;
+        var templateDepth = 0;
+
+        for (var i = 0; i < content.Length; i++)
+        {
+            if (i < content.Length - 1 && content.AsSpan(i, 2).SequenceEqual("[["))
+            {
+                linkDepth++;
+                i++;
+                continue;
+            }
+
+            if (i < content.Length - 1 && content.AsSpan(i, 2).SequenceEqual("]]"))
+            {
+                linkDepth = Math.Max(0, linkDepth - 1);
+                i++;
+                continue;
+            }
+
+            if (i < content.Length - 1 && content.AsSpan(i, 2).SequenceEqual("{{"))
+            {
+                templateDepth++;
+                i++;
+                continue;
+            }
+
+            if (i < content.Length - 1 && content.AsSpan(i, 2).SequenceEqual("}}"))
+            {
+                templateDepth = Math.Max(0, templateDepth - 1);
+                i++;
+                continue;
+            }
+
+            if (content[i] == '|' && linkDepth == 0 && templateDepth == 0)
+            {
+                fields.Add(content[start..i].Trim());
+                start = i + 1;
+            }
+        }
+
+        fields.Add(content[start..].Trim());
+        return fields;
+    }
+
+    private static string? CleanWikiText(string value)
+    {
+        value = WikiMarkupRegex().Replace(value, ReplaceWikiMarkup);
+        value = CleanText(value);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     private static int ScoreTitle(string candidate, string normalizedTitle, int? year, string context)
@@ -535,5 +632,10 @@ public partial class ImfdbClient : IImfdbClient
     [GeneratedRegex("\\[\\[(?:File|Image):(?<file>[^\\]|]+)", RegexOptions.IgnoreCase)]
     private static partial Regex WikiFileRegex();
 
-    private sealed record WikiFirearmSection(string Name, string? Details, string? ImageUrl, string? SourceUrl);
+    [GeneratedRegex("^(?:File|Image):", RegexOptions.IgnoreCase)]
+    private static partial Regex WikiFilePrefixRegex();
+
+    private sealed record WikiFirearmSection(string Name, string? Details, string? ImageUrl, string? Caption, string? SourceUrl);
+
+    private sealed record WikiImage(string ImageUrl, string? Caption);
 }
