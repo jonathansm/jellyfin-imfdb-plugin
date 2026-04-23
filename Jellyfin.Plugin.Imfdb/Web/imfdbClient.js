@@ -120,11 +120,16 @@
                 margin: 1.5em 0;
                 position: relative;
             }
+            #${rowId} .imfdb-scroller {
+                margin-left: -3.3%;
+                margin-right: -3.3%;
+            }
             #${rowId} .imfdb-scroll {
                 display: flex;
                 overflow-x: auto;
                 overflow-y: hidden;
-                padding: .35em 0 .75em;
+                padding-bottom: .75em;
+                padding-top: .35em;
                 scroll-snap-type: x proximity;
                 scrollbar-width: none;
             }
@@ -134,16 +139,6 @@
             #${rowId} .imfdb-card {
                 flex: 0 0 auto;
                 scroll-snap-align: start;
-            }
-            #${rowId} .imfdb-card .cardBox {
-                margin-left: .45em;
-                margin-right: .45em;
-            }
-            #${rowId} .imfdb-card:first-child .cardBox {
-                margin-left: 0;
-            }
-            #${rowId} .imfdb-card:last-child .cardBox {
-                margin-right: 0;
             }
             #${rowId} .imfdb-card .cardText {
                 white-space: normal;
@@ -160,6 +155,12 @@
             @media (min-width: 75em) {
                 #${rowId} .imfdb-card.overflowBackdropCard {
                     width: 25.5vw;
+                }
+            }
+            @supports (margin-left: max(1px, 2px)) {
+                #${rowId} .imfdb-scroller {
+                    margin-left: calc(-1 * max(3.3%, env(safe-area-inset-left)));
+                    margin-right: calc(-1 * max(3.3%, env(safe-area-inset-right)));
                 }
             }
             #${rowId} dialog {
@@ -242,7 +243,7 @@
         const row = document.createElement('section');
         row.id = rowId;
         row.className = 'verticalSection imfdb-section';
-        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="itemsContainer scrollSlider imfdb-scroll"><div class="card overflowBackdropCard imfdb-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-backdrop"></div><div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer"><span class="imfdb-placeholder">Searching IMFDB...</span></div></div><div class="cardFooter cardFooter-transparent"><div class="cardText cardTextCentered">&nbsp;</div></div></div></div></div>';
+        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="emby-scroller imfdb-scroller"><div class="itemsContainer scrollSlider imfdb-scroll"><div class="card overflowBackdropCard imfdb-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-backdrop"></div><div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer"><span class="imfdb-placeholder">Searching IMFDB...</span></div></div><div class="cardFooter cardFooter-transparent"><div class="cardText cardTextCentered">&nbsp;</div></div></div></div></div></div>';
         anchor.insertAdjacentElement('afterend', row);
         return row;
     }
@@ -336,7 +337,7 @@
         }
 
         row.className = 'verticalSection imfdb-section';
-        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="emby-scrollbuttons"><button type="button" class="emby-scrollbuttons-button paper-icon-button-light imfdb-scroll-previous" title="Previous"><span class="material-icons chevron_left" aria-hidden="true"></span></button><button type="button" class="emby-scrollbuttons-button paper-icon-button-light imfdb-scroll-next" title="Next"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div><div class="itemsContainer scrollSlider imfdb-scroll"></div>';
+        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="emby-scrollbuttons"><button type="button" class="emby-scrollbuttons-button paper-icon-button-light imfdb-scroll-previous" title="Previous"><span class="material-icons chevron_left" aria-hidden="true"></span></button><button type="button" class="emby-scrollbuttons-button paper-icon-button-light imfdb-scroll-next" title="Next"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div><div class="emby-scroller imfdb-scroller"><div class="itemsContainer scrollSlider imfdb-scroll"></div></div>';
 
         const scroller = row.querySelector('.imfdb-scroll');
         const previousButton = row.querySelector('.imfdb-scroll-previous');
