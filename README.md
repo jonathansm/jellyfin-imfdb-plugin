@@ -9,7 +9,7 @@ Jellyfin IMFDB is a Jellyfin server plugin that looks up movies and series in IM
 - Adds firearm cards to Jellyfin movie and series detail pages.
 - Shows firearm names, images where available, and basic firearm details.
 - Links each firearm back to the matching IMFDB title section when possible.
-- Uses Jellyfin item title, year, and IMDb provider id when available.
+- Uses Jellyfin item title and year when available.
 - Adds a diagnostic API endpoint at `/Imfdb/Status`.
 - Adds a lookup API endpoint at `/Imfdb/Lookup?itemId=<jellyfin-item-guid>`.
 - Adds a dashboard configuration page for lookup and UI injection options.

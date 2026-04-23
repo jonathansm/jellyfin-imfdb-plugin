@@ -32,7 +32,6 @@ public partial class ImfdbClient : IImfdbClient
     public async Task<(string? SourceTitle, string? SourceUrl, IReadOnlyList<FirearmResult> Firearms)> LookupAsync(
         string title,
         int? year,
-        string? imdbId,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(title))

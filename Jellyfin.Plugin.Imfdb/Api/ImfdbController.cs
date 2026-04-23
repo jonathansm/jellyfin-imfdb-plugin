@@ -55,7 +55,7 @@ public class ImfdbController : ControllerBase
 
         item.ProviderIds.TryGetValue("Imdb", out var imdbId);
         var (sourceTitle, sourceUrl, firearms) = await _imfdbClient
-            .LookupAsync(item.Name, item.ProductionYear, imdbId, cancellationToken)
+            .LookupAsync(item.Name, item.ProductionYear, cancellationToken)
             .ConfigureAwait(false);
 
         return Ok(new ImfdbLookupResult(

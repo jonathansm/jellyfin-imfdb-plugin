@@ -12,13 +12,10 @@ public interface IImfdbClient
     /// </summary>
     /// <param name="title">Media title.</param>
     /// <param name="year">Production year.</param>
-    /// <param name="imdbId">IMDb id.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Matched source title, source URL, and firearms.</returns>
     Task<(string? SourceTitle, string? SourceUrl, IReadOnlyList<FirearmResult> Firearms)> LookupAsync(
         string title,
         int? year,
-        string? imdbId,
         CancellationToken cancellationToken);
 }
-
