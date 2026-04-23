@@ -16,15 +16,16 @@ Jellyfin IMFDB is a Jellyfin server plugin that looks up movies and series in IM
 
 ## Important Limitations
 
-This plugin depends on web scraping and unofficial public pages. IMFDB does not provide a stable first-party JSON API for all of the data this plugin needs. The plugin currently reads from IMFDB Browser pages and uses best-effort enrichment from public sources such as Wikipedia for firearm images and descriptions.
+This plugin depends on web scraping and unofficial public pages. IMFDB does not provide a stable first-party JSON API for all of the data this plugin needs. The plugin currently uses IMFDB Browser only to find the matching IMFDB title page, then reads firearm cards, section text, captions, and images from IMFDB wiki source data when the public endpoint allows it.
 
 That means this plugin can break if:
 
 - IMFDB Browser changes its HTML structure.
+- IMFDB wiki source responses change shape, become unavailable, or block automated requests.
 - IMFDB changes page names or section anchors.
 - The File Transformation plugin changes its registration API.
 - Jellyfin Web changes the DOM structure around movie, series, or actor sections.
-- Public detail/image sources change, rate-limit, or stop returning matching data.
+- IMFDB detail/image URLs change, rate-limit, or stop returning matching data.
 
 If a title has no IMFDB entry, the firearms row should stay hidden. If an entry exists but no firearm image/details can be found, the card may still appear with limited information.
 
@@ -96,14 +97,14 @@ dotnet publish Jellyfin.Plugin.Imfdb.sln -c Release
 Package a release zip:
 
 ```bash
-./scripts/package-plugin.sh 0.1.1.2
+./scripts/package-plugin.sh 0.1.2.0
 ```
 
 The package script creates:
 
 ```text
-artifacts/jellyfin-plugin-imfdb_0.1.1.2.zip
-artifacts/jellyfin-plugin-imfdb_0.1.1.2.zip.md5
+artifacts/jellyfin-plugin-imfdb_0.1.2.0.zip
+artifacts/jellyfin-plugin-imfdb_0.1.2.0.zip.md5
 ```
 
 ## License

@@ -247,9 +247,8 @@
             <h2>${escapeHtml(firearm.name)}</h2>
             ${firearm.imageUrl ? `<img class="imfdb-dialog-image" src="${escapeAttribute(firearm.imageUrl)}" alt="${escapeAttribute(firearm.name)}">` : ''}
             <p class="imfdb-dialog-summary">${escapeHtml(firearm.summary || 'Listed on IMFDB.')}</p>
-            <p class="imfdb-dialog-details">${escapeHtml(firearm.details || 'No additional firearm details were available from the indexed sources.')}</p>
+            <p class="imfdb-dialog-details">${escapeHtml(firearm.details || 'No additional firearm details were available from IMFDB.')}</p>
             <div class="imfdb-dialog-actions">
-                ${firearm.detailSourceUrl ? `<button type="button" class="imfdb-action imfdb-details-source">Details Source</button>` : ''}
                 ${imfdbUrl ? `<button type="button" class="imfdb-action imfdb-open">Open IMFDB</button>` : ''}
                 <button type="button" class="imfdb-action imfdb-close">Close</button>
             </div>
@@ -269,12 +268,6 @@
             });
         }
 
-        const detailsSourceButton = dialog.querySelector('.imfdb-details-source');
-        if (detailsSourceButton) {
-            detailsSourceButton.addEventListener('click', function () {
-                openExternalUrl(firearm.detailSourceUrl);
-            });
-        }
         dialog.addEventListener('close', function () {
             dialog.remove();
         });
@@ -396,9 +389,7 @@
                 sourceSectionUrl: firearm.sourceSectionUrl || firearm.SourceSectionUrl,
                 imageUrl: firearm.imageUrl || firearm.ImageUrl,
                 summary: firearm.summary || firearm.Summary,
-                details: firearm.details || firearm.Details,
-                detailSourceUrl: firearm.detailSourceUrl || firearm.DetailSourceUrl,
-                appearances: firearm.appearances || firearm.Appearances || []
+                details: firearm.details || firearm.Details
             }))
         };
     }
