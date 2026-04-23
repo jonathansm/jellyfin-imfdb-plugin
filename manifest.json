@@ -8,12 +8,20 @@
     "category": "Metadata",
     "versions": [
       {
+        "version": "0.1.2.0",
+        "changelog": "Uses IMFDB wiki sections as the firearm card source, adds more complete firearm coverage, and removes legacy Browser-table API fields.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.2.0/jellyfin-plugin-imfdb_0.1.2.0.zip",
+        "checksum": "61eea96f7c135e874052834e3f23cd56",
+        "timestamp": "2026-04-23T04:01:28Z"
+      },
+      {
         "version": "0.1.1.2",
         "changelog": "Restyles firearm cards to better match native Jellyfin cards, hides the scrollbar, and adds previous and next controls.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.1.2/jellyfin-plugin-imfdb_0.1.1.2.zip",
-        "checksum": "7c2db4c00bbd816bd87b1ce10eb58249",
-        "timestamp": "2026-04-23T02:46:16Z"
+        "checksum": "GENERATED_BY_RELEASE_WORKFLOW",
+        "timestamp": "2026-04-22T00:00:00Z"
       },
       {
         "version": "0.1.1.1",
