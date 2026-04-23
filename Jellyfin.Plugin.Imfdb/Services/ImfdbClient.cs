@@ -288,7 +288,8 @@ public partial class ImfdbClient : IImfdbClient
                 return firearms;
             }
 
-            return firearms
+            var matchedSections = new HashSet<WikiFirearmSection>();
+            var enrichedFirearms = firearms
                 .Select(firearm =>
                 {
                     var section = FindBestSection(sections, firearm.Name);
@@ -297,6 +298,7 @@ public partial class ImfdbClient : IImfdbClient
                         return firearm;
                     }
 
+                    matchedSections.Add(section);
                     return firearm with
                     {
                         SourceSectionUrl = section.SourceUrl ?? firearm.SourceSectionUrl,
@@ -306,6 +308,15 @@ public partial class ImfdbClient : IImfdbClient
                         DetailSourceUrl = section.SourceUrl ?? firearm.DetailSourceUrl
                     };
                 })
+                .ToArray();
+
+            var additionalFirearms = sections
+                .Where(section => !matchedSections.Contains(section))
+                .Where(section => !enrichedFirearms.Any(firearm => IsSameFirearmName(firearm.Name, section.Name)))
+                .Select(CreateFirearmFromSection);
+
+            return enrichedFirearms
+                .Concat(additionalFirearms)
                 .ToArray();
         }
         catch (OperationCanceledException)
@@ -363,9 +374,40 @@ public partial class ImfdbClient : IImfdbClient
         return sections.FirstOrDefault(section =>
         {
             var normalizedSectionName = NormalizeTitle(section.Name);
-            return normalizedSectionName.Contains(normalizedFirearmName, StringComparison.OrdinalIgnoreCase) ||
-                normalizedFirearmName.Contains(normalizedSectionName, StringComparison.OrdinalIgnoreCase);
+            return IsExpandedFirearmName(normalizedSectionName, normalizedFirearmName);
         });
+    }
+
+    private static bool IsSameFirearmName(string first, string second)
+    {
+        var normalizedFirst = NormalizeTitle(first);
+        var normalizedSecond = NormalizeTitle(second);
+        return normalizedFirst.Equals(normalizedSecond, StringComparison.OrdinalIgnoreCase) ||
+            IsExpandedFirearmName(normalizedFirst, normalizedSecond);
+    }
+
+    private static bool IsExpandedFirearmName(string normalizedFirst, string normalizedSecond)
+    {
+        if (Math.Abs(normalizedFirst.Length - normalizedSecond.Length) < 4)
+        {
+            return false;
+        }
+
+        return normalizedFirst.Contains(normalizedSecond, StringComparison.OrdinalIgnoreCase) ||
+            normalizedSecond.Contains(normalizedFirst, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static FirearmResult CreateFirearmFromSection(WikiFirearmSection section)
+    {
+        return new FirearmResult(
+            section.Name,
+            section.SourceUrl,
+            section.SourceUrl,
+            section.ImageUrl,
+            section.Caption ?? Truncate(section.Details ?? "Firearm listed on IMFDB.", 180),
+            section.Details,
+            section.SourceUrl,
+            Array.Empty<FirearmAppearance>());
     }
 
     private static string? GetWikiPageTitle(Uri pageUrl)
