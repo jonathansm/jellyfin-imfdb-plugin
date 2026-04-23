@@ -230,7 +230,7 @@
         const row = document.createElement('section');
         row.id = rowId;
         row.className = 'verticalSection imfdb-section';
-        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div is="emby-scroller" class="imfdb-scroller" data-mousewheel="false"><div is="emby-itemscontainer" class="itemsContainer scrollSlider imfdb-scroll"><div class="card overflowBackdropCard imfdb-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-backdrop"></div><div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer"><span class="imfdb-placeholder">Searching IMFDB...</span></div></div><div class="cardFooter cardFooter-transparent"><div class="cardText cardTextCentered">&nbsp;</div></div></div></div></div></div>';
+        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div is="emby-scroller" class="imfdb-scroller"><div is="emby-itemscontainer" class="itemsContainer scrollSlider imfdb-scroll"><div class="card overflowBackdropCard imfdb-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-backdrop"></div><div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer"><span class="imfdb-placeholder">Searching IMFDB...</span></div></div><div class="cardFooter cardFooter-transparent"><div class="cardText cardTextCentered">&nbsp;</div></div></div></div></div></div>';
         anchor.insertAdjacentElement('afterend', row);
         return row;
     }
@@ -317,7 +317,7 @@
             `;
         });
 
-        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div is="emby-scroller" class="imfdb-scroller" data-mousewheel="false"><div is="emby-itemscontainer" class="itemsContainer scrollSlider imfdb-scroll">' + cardsHtml + '</div></div>';
+        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div is="emby-scroller" class="imfdb-scroller"><div is="emby-itemscontainer" class="itemsContainer scrollSlider imfdb-scroll">' + cardsHtml + '</div></div>';
 
         const cards = row.querySelectorAll('.imfdb-card');
         firearms.forEach((firearm, index) => {
