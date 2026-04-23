@@ -389,9 +389,7 @@
                 sourceSectionUrl: firearm.sourceSectionUrl || firearm.SourceSectionUrl,
                 imageUrl: firearm.imageUrl || firearm.ImageUrl,
                 summary: firearm.summary || firearm.Summary,
-                details: firearm.details || firearm.Details,
-                detailSourceUrl: firearm.detailSourceUrl || firearm.DetailSourceUrl,
-                appearances: firearm.appearances || firearm.Appearances || []
+                details: firearm.details || firearm.Details
             }))
         };
     }

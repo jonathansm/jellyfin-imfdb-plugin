@@ -146,9 +146,7 @@ public partial class ImfdbClient : IImfdbClient
                 section.SourceUrl,
                 section.ImageUrl,
                 section.Caption ?? Truncate(section.Details ?? "Firearm listed on IMFDB.", 180),
-                section.Details,
-                section.SourceUrl,
-                Array.Empty<FirearmAppearance>()))
+                section.Details))
             .DistinctBy(static item => NormalizeTitle(item.Name))
             .ToArray();
     }
