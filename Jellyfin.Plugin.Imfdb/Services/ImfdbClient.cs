@@ -45,10 +45,18 @@ public partial class ImfdbClient : IImfdbClient
             var browserMatch = await FindBrowserMatchAsync(title, year, cancellationToken).ConfigureAwait(false);
             if (browserMatch is not null)
             {
-                var firearms = await ReadBrowserMediaAsync(browserMatch.Value.Url, cancellationToken).ConfigureAwait(false);
-                if (firearms.Count > 0)
+                var sourcePageUrl = await ReadBrowserSourcePageUrlAsync(browserMatch.Value.Url, cancellationToken).ConfigureAwait(false);
+                if (sourcePageUrl is not null)
                 {
-                    return (browserMatch.Value.Title, browserMatch.Value.Url.ToString(), firearms);
+                    var pageTitle = GetWikiPageTitle(sourcePageUrl);
+                    if (!string.IsNullOrWhiteSpace(pageTitle))
+                    {
+                        var firearms = await ReadWikiPageAsync(pageTitle, sourcePageUrl, cancellationToken).ConfigureAwait(false);
+                        if (firearms.Count > 0)
+                        {
+                            return (browserMatch.Value.Title, sourcePageUrl.ToString(), firearms);
+                        }
+                    }
                 }
             }
 
@@ -128,61 +136,11 @@ public partial class ImfdbClient : IImfdbClient
         return best is null ? null : (best.Value.Title, best.Value.Url);
     }
 
-    private async Task<IReadOnlyList<FirearmResult>> ReadBrowserMediaAsync(Uri mediaUrl, CancellationToken cancellationToken)
+    private async Task<Uri?> ReadBrowserSourcePageUrlAsync(Uri mediaUrl, CancellationToken cancellationToken)
     {
         var html = await GetStringAsync(mediaUrl, cancellationToken).ConfigureAwait(false);
         var sourcePageUrl = FindImfdbSourcePageUrl(html);
-        var rows = BrowserAppearanceRowRegex().Matches(html);
-        var grouped = new Dictionary<string, List<(string FirearmUrl, FirearmAppearance Appearance)>>(StringComparer.OrdinalIgnoreCase);
-        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (Match row in rows)
-        {
-            var actor = CleanText(row.Groups["actor"].Value);
-            var character = CleanText(row.Groups["character"].Value);
-            var firearmName = CleanText(row.Groups["firearm"].Value);
-            var firearmUrl = WebUtility.HtmlDecode(row.Groups["url"].Value);
-            var notes = CleanText(row.Groups["notes"].Value);
-
-            if (string.IsNullOrWhiteSpace(firearmName))
-            {
-                continue;
-            }
-
-            var key = NormalizeTitle(firearmName);
-            names[key] = firearmName;
-            if (!grouped.TryGetValue(key, out var appearances))
-            {
-                appearances = new List<(string FirearmUrl, FirearmAppearance Appearance)>();
-                grouped[key] = appearances;
-            }
-
-            appearances.Add((firearmUrl, new FirearmAppearance(
-                NullIfEmpty(actor),
-                NullIfEmpty(character),
-                NullIfDash(notes))));
-        }
-
-        var results = grouped
-            .OrderByDescending(static pair => pair.Value.Count)
-            .ThenBy(static pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(pair =>
-            {
-                var url = pair.Value.Select(static value => value.FirearmUrl).FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value));
-                var appearances = pair.Value.Select(static value => value.Appearance).ToArray();
-                return new FirearmResult(
-                    names[pair.Key],
-                    string.IsNullOrWhiteSpace(url) ? null : new Uri(BrowserBaseUri, url.TrimStart('/')).ToString(),
-                    BuildSourceSectionUrl(sourcePageUrl, names[pair.Key]),
-                    null,
-                    BuildSummary(appearances),
-                    null,
-                    null,
-                    appearances);
-            })
-            .ToArray();
-
-        return await EnrichFirearmsFromWikiSectionsAsync(results, sourcePageUrl, cancellationToken).ConfigureAwait(false);
+        return string.IsNullOrWhiteSpace(sourcePageUrl) ? null : new Uri(sourcePageUrl);
     }
 
     private async Task<(string Title, Uri Url)?> FindWikiMatchAsync(string title, int? year, string? imdbId, CancellationToken cancellationToken)
@@ -237,7 +195,6 @@ public partial class ImfdbClient : IImfdbClient
                 section.SourceUrl,
                 Array.Empty<FirearmAppearance>()))
             .DistinctBy(static item => NormalizeTitle(item.Name))
-            .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 
@@ -250,84 +207,6 @@ public partial class ImfdbClient : IImfdbClient
         }
 
         return WebUtility.HtmlDecode(match.Groups["url"].Value);
-    }
-
-    private static string? BuildSourceSectionUrl(string? sourcePageUrl, string firearmName)
-    {
-        if (string.IsNullOrWhiteSpace(sourcePageUrl))
-        {
-            return null;
-        }
-
-        var section = Uri.EscapeDataString(firearmName.Replace(' ', '_'));
-        return sourcePageUrl + "#" + section;
-    }
-
-    private async Task<IReadOnlyList<FirearmResult>> EnrichFirearmsFromWikiSectionsAsync(
-        IReadOnlyList<FirearmResult> firearms,
-        string? sourcePageUrl,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(sourcePageUrl))
-        {
-            return firearms;
-        }
-
-        try
-        {
-            var pageUrl = new Uri(sourcePageUrl);
-            var pageTitle = GetWikiPageTitle(pageUrl);
-            if (string.IsNullOrWhiteSpace(pageTitle))
-            {
-                return firearms;
-            }
-
-            var sections = await ReadWikiSectionsAsync(pageTitle, pageUrl, cancellationToken).ConfigureAwait(false);
-            if (sections.Count == 0)
-            {
-                return firearms;
-            }
-
-            var matchedSections = new HashSet<WikiFirearmSection>();
-            var enrichedFirearms = firearms
-                .Select(firearm =>
-                {
-                    var section = FindBestSection(sections, firearm.Name);
-                    if (section is null)
-                    {
-                        return firearm;
-                    }
-
-                    matchedSections.Add(section);
-                    return firearm with
-                    {
-                        SourceSectionUrl = section.SourceUrl ?? firearm.SourceSectionUrl,
-                        ImageUrl = section.ImageUrl ?? firearm.ImageUrl,
-                        Summary = section.Caption ?? (string.IsNullOrWhiteSpace(section.Details) ? firearm.Summary : Truncate(section.Details, 180)),
-                        Details = string.IsNullOrWhiteSpace(section.Details) ? firearm.Details : section.Details,
-                        DetailSourceUrl = section.SourceUrl ?? firearm.DetailSourceUrl
-                    };
-                })
-                .ToArray();
-
-            var additionalFirearms = sections
-                .Where(section => !matchedSections.Contains(section))
-                .Where(section => !enrichedFirearms.Any(firearm => IsSameFirearmName(firearm.Name, section.Name)))
-                .Select(CreateFirearmFromSection);
-
-            return enrichedFirearms
-                .Concat(additionalFirearms)
-                .ToArray();
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Unable to enrich firearm details from IMFDB page {SourcePageUrl}", sourcePageUrl);
-            return firearms;
-        }
     }
 
     private static async Task<IReadOnlyList<WikiFirearmSection>> ReadWikiSectionsAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
@@ -360,54 +239,6 @@ public partial class ImfdbClient : IImfdbClient
         }
 
         return sections;
-    }
-
-    private static WikiFirearmSection? FindBestSection(IReadOnlyList<WikiFirearmSection> sections, string firearmName)
-    {
-        var normalizedFirearmName = NormalizeTitle(firearmName);
-        var exact = sections.FirstOrDefault(section => NormalizeTitle(section.Name).Equals(normalizedFirearmName, StringComparison.OrdinalIgnoreCase));
-        if (exact is not null)
-        {
-            return exact;
-        }
-
-        return sections.FirstOrDefault(section =>
-        {
-            var normalizedSectionName = NormalizeTitle(section.Name);
-            return IsExpandedFirearmName(normalizedSectionName, normalizedFirearmName);
-        });
-    }
-
-    private static bool IsSameFirearmName(string first, string second)
-    {
-        var normalizedFirst = NormalizeTitle(first);
-        var normalizedSecond = NormalizeTitle(second);
-        return normalizedFirst.Equals(normalizedSecond, StringComparison.OrdinalIgnoreCase) ||
-            IsExpandedFirearmName(normalizedFirst, normalizedSecond);
-    }
-
-    private static bool IsExpandedFirearmName(string normalizedFirst, string normalizedSecond)
-    {
-        if (Math.Abs(normalizedFirst.Length - normalizedSecond.Length) < 4)
-        {
-            return false;
-        }
-
-        return normalizedFirst.Contains(normalizedSecond, StringComparison.OrdinalIgnoreCase) ||
-            normalizedSecond.Contains(normalizedFirst, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static FirearmResult CreateFirearmFromSection(WikiFirearmSection section)
-    {
-        return new FirearmResult(
-            section.Name,
-            section.SourceUrl,
-            section.SourceUrl,
-            section.ImageUrl,
-            section.Caption ?? Truncate(section.Details ?? "Firearm listed on IMFDB.", 180),
-            section.Details,
-            section.SourceUrl,
-            Array.Empty<FirearmAppearance>());
     }
 
     private static string? GetWikiPageTitle(Uri pageUrl)
@@ -588,23 +419,6 @@ public partial class ImfdbClient : IImfdbClient
         return score;
     }
 
-    private static string BuildSummary(IReadOnlyList<FirearmAppearance> appearances)
-    {
-        var actorNames = appearances
-            .Select(static appearance => appearance.Actor)
-            .Where(static actor => !string.IsNullOrWhiteSpace(actor))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(3)
-            .ToArray();
-
-        if (actorNames.Length == 0)
-        {
-            return $"{appearances.Count} appearance{(appearances.Count == 1 ? string.Empty : "s")} listed on IMFDB.";
-        }
-
-        return "Used by " + string.Join(", ", actorNames) + (appearances.Count > actorNames.Length ? $" and {appearances.Count - actorNames.Length} more." : ".");
-    }
-
     private static string NormalizeTitle(string value)
     {
         value = WebUtility.HtmlDecode(value).ToLowerInvariant();
@@ -619,10 +433,6 @@ public partial class ImfdbClient : IImfdbClient
         value = WhitespaceRegex().Replace(value, " ");
         return value.Trim();
     }
-
-    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
-
-    private static string? NullIfDash(string value) => string.IsNullOrWhiteSpace(value) || value == "-" ? null : value;
 
     private static string Truncate(string value, int maxLength)
     {
@@ -649,9 +459,6 @@ public partial class ImfdbClient : IImfdbClient
 
     [GeneratedRegex("<a\\s+href=\"(?<url>/media/\\d+)\"[^>]*>(?<title>.*?)</a>(?<tail>[^<]*(?:<[^a][^>]*>[^<]*){0,8})", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex BrowserMediaLinkRegex();
-
-    [GeneratedRegex("<tr>\\s*<td[^>]*>\\s*<a[^>]*>(?<actor>.*?)</a>\\s*</td>\\s*<td[^>]*>(?<character>.*?)</td>\\s*<td[^>]*>\\s*<a\\s+href=\"(?<url>/firearms/\\d+)\"[^>]*>(?<firearm>.*?)</a>\\s*</td>\\s*<td[^>]*>(?<notes>.*?)</td>\\s*</tr>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex BrowserAppearanceRowRegex();
 
     [GeneratedRegex("<a\\s+href=\"(?<url>https://www\\.imfdb\\.org/wiki/[^\"]+)\"[^>]*>\\s*View on IMFDB", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex ImfdbSourcePageLinkRegex();
