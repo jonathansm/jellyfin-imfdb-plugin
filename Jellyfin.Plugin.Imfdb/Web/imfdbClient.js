@@ -120,16 +120,9 @@
                 margin: 1.5em 0;
                 position: relative;
             }
-            #${rowId} .imfdb-scroller {
-                margin-left: -3.3%;
-                margin-right: -3.3%;
-            }
             #${rowId} .imfdb-scroll {
                 display: flex;
-                overflow-x: auto;
-                overflow-y: hidden;
                 padding-bottom: .75em;
-                padding-top: .35em;
                 scroll-snap-type: x proximity;
                 scrollbar-width: none;
             }
@@ -155,12 +148,6 @@
             @media (min-width: 75em) {
                 #${rowId} .imfdb-card.overflowBackdropCard {
                     width: 25.5vw;
-                }
-            }
-            @supports (margin-left: max(1px, 2px)) {
-                #${rowId} .imfdb-scroller {
-                    margin-left: calc(-1 * max(3.3%, env(safe-area-inset-left)));
-                    margin-right: calc(-1 * max(3.3%, env(safe-area-inset-right)));
                 }
             }
             #${rowId} dialog {
@@ -243,38 +230,9 @@
         const row = document.createElement('section');
         row.id = rowId;
         row.className = 'verticalSection imfdb-section';
-        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="emby-scroller imfdb-scroller"><div class="itemsContainer scrollSlider imfdb-scroll"><div class="card overflowBackdropCard imfdb-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-backdrop"></div><div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer"><span class="imfdb-placeholder">Searching IMFDB...</span></div></div><div class="cardFooter cardFooter-transparent"><div class="cardText cardTextCentered">&nbsp;</div></div></div></div></div></div>';
+        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div is="emby-scroller" class="imfdb-scroller" data-mousewheel="false"><div is="emby-itemscontainer" class="itemsContainer scrollSlider imfdb-scroll"><div class="card overflowBackdropCard imfdb-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-backdrop"></div><div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer"><span class="imfdb-placeholder">Searching IMFDB...</span></div></div><div class="cardFooter cardFooter-transparent"><div class="cardText cardTextCentered">&nbsp;</div></div></div></div></div></div>';
         anchor.insertAdjacentElement('afterend', row);
         return row;
-    }
-
-    function scrollFirearms(scroller, direction) {
-        if (!scroller) {
-            return;
-        }
-
-        var amount = Math.max(scroller.clientWidth * .85, 320);
-        scroller.scrollLeft += direction * amount;
-        window.setTimeout(function () {
-            updateScrollButtons(scroller);
-        }, 250);
-    }
-
-    function updateScrollButtons(scroller) {
-        if (!scroller) {
-            return;
-        }
-
-        var row = document.getElementById(rowId);
-        var previousButton = row ? row.querySelector('.imfdb-scroll-previous') : null;
-        var nextButton = row ? row.querySelector('.imfdb-scroll-next') : null;
-        if (!previousButton || !nextButton) {
-            return;
-        }
-
-        var maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
-        previousButton.disabled = scroller.scrollLeft <= 2;
-        nextButton.disabled = maxScrollLeft <= 2 || scroller.scrollLeft >= maxScrollLeft - 2;
     }
 
     function showDetails(firearm) {
@@ -337,35 +295,12 @@
         }
 
         row.className = 'verticalSection imfdb-section';
-        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div class="emby-scrollbuttons"><button type="button" class="emby-scrollbuttons-button paper-icon-button-light imfdb-scroll-previous" title="Previous"><span class="material-icons chevron_left" aria-hidden="true"></span></button><button type="button" class="emby-scrollbuttons-button paper-icon-button-light imfdb-scroll-next" title="Next"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div><div class="emby-scroller imfdb-scroller"><div class="itemsContainer scrollSlider imfdb-scroll"></div></div>';
+        var cardsHtml = '';
 
-        const scroller = row.querySelector('.imfdb-scroll');
-        const previousButton = row.querySelector('.imfdb-scroll-previous');
-        const nextButton = row.querySelector('.imfdb-scroll-next');
-        if (previousButton) {
-            previousButton.addEventListener('click', function () {
-                scrollFirearms(scroller, -1);
-            });
-        }
-
-        if (nextButton) {
-            nextButton.addEventListener('click', function () {
-                scrollFirearms(scroller, 1);
-            });
-        }
-
-        if (scroller) {
-            scroller.addEventListener('scroll', function () {
-                updateScrollButtons(scroller);
-            });
-        }
-
-        firearms.forEach((firearm) => {
-            const card = document.createElement('button');
+        firearms.forEach((firearm, index) => {
             const imageStyle = firearm.imageUrl ? ` style="${escapeAttribute('background-image:url("' + escapeCssUrl(firearm.imageUrl) + '")')}"` : '';
-            card.type = 'button';
-            card.className = 'card overflowBackdropCard card-hoverable imfdb-card';
-            card.innerHTML = `
+            cardsHtml += `
+                <button type="button" class="card overflowBackdropCard card-hoverable imfdb-card" data-imfdb-index="${index}">
                 <div class="cardBox">
                     <div class="cardScalable">
                         <div class="cardPadder cardPadder-backdrop"></div>
@@ -378,15 +313,23 @@
                         <div class="cardText cardTextCentered"><bdi>${escapeHtml(firearm.name)}</bdi></div>
                     </div>
                 </div>
+                </button>
             `;
+        });
+
+        row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div is="emby-scroller" class="imfdb-scroller" data-mousewheel="false"><div is="emby-itemscontainer" class="itemsContainer scrollSlider imfdb-scroll">' + cardsHtml + '</div></div>';
+
+        const cards = row.querySelectorAll('.imfdb-card');
+        firearms.forEach((firearm, index) => {
+            const card = cards[index];
+            if (!card) {
+                return;
+            }
+
             card.addEventListener('click', function () {
                 showDetails(firearm);
             });
-            scroller.appendChild(card);
         });
-        window.setTimeout(function () {
-            updateScrollButtons(scroller);
-        }, 0);
     }
 
     function escapeHtml(value) {
