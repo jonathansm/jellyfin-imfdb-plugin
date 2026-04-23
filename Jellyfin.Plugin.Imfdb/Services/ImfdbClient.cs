@@ -390,9 +390,24 @@ public partial class ImfdbClient : IImfdbClient
             section = section[..image.Index];
         }
 
-        section = WikiMarkupRegex().Replace(section, " ");
+        section = WikiMarkupRegex().Replace(section, ReplaceWikiMarkup);
         section = CleanText(section);
         return string.IsNullOrWhiteSpace(section) ? null : Truncate(section, 700);
+    }
+
+    private static string ReplaceWikiMarkup(Match match)
+    {
+        if (match.Groups["linkText"].Success)
+        {
+            return match.Groups["linkText"].Value;
+        }
+
+        if (match.Groups["externalText"].Success)
+        {
+            return match.Groups["externalText"].Value;
+        }
+
+        return " ";
     }
 
     private static string? ExtractFirstImageUrl(string section)
@@ -514,7 +529,7 @@ public partial class ImfdbClient : IImfdbClient
     [GeneratedRegex("\\s+")]
     private static partial Regex WhitespaceRegex();
 
-    [GeneratedRegex("\\[\\[(?:[^\\]|]+\\|)?([^\\]]+)\\]\\]|\\{\\{[^}]+\\}\\}|\\[https?://[^\\s]+\\s*([^\\]]*)\\]|'{2,}|={2,}|\\[\\[Image:[^\\]]+\\]\\]", RegexOptions.IgnoreCase)]
+    [GeneratedRegex("\\[\\[(?:[^\\]|]+\\|)?(?<linkText>[^\\]]+)\\]\\]|\\{\\{[^}]+\\}\\}|\\[https?://[^\\s]+\\s*(?<externalText>[^\\]]*)\\]|'{2,}|={2,}|\\[\\[Image:[^\\]]+\\]\\]", RegexOptions.IgnoreCase)]
     private static partial Regex WikiMarkupRegex();
 
     [GeneratedRegex("\\[\\[(?:File|Image):(?<file>[^\\]|]+)", RegexOptions.IgnoreCase)]
