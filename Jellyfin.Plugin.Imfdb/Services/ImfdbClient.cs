@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.Imfdb.Models;
@@ -13,8 +14,7 @@ public partial class ImfdbClient : IImfdbClient
 {
     private static readonly Uri BrowserBaseUri = new("https://browser.imfdb.org/");
     private static readonly Uri WikiApiUri = new("https://www.imfdb.org/api.php");
-    private static readonly Uri WikipediaOpenSearchUri = new("https://en.wikipedia.org/w/api.php");
-    private static readonly Uri WikipediaSummaryBaseUri = new("https://en.wikipedia.org/api/rest_v1/page/summary/");
+    private static readonly Uri WikiImageBaseUri = new("https://www.imfdb.org/images/");
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
     private readonly ILogger<ImfdbClient> _logger;
@@ -182,7 +182,7 @@ public partial class ImfdbClient : IImfdbClient
             })
             .ToArray();
 
-        return await EnrichFirearmDetailsAsync(results, cancellationToken).ConfigureAwait(false);
+        return await EnrichFirearmsFromWikiSectionsAsync(results, sourcePageUrl, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<(string Title, Uri Url)?> FindWikiMatchAsync(string title, int? year, string? imdbId, CancellationToken cancellationToken)
@@ -225,45 +225,20 @@ public partial class ImfdbClient : IImfdbClient
 
     private async Task<IReadOnlyList<FirearmResult>> ReadWikiPageAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
     {
-        var uri = new Uri(WikiApiUri + $"?action=parse&prop=wikitext&format=json&page={Uri.EscapeDataString(pageTitle)}");
-        using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
-        if (!document.RootElement.TryGetProperty("parse", out var parse) ||
-            !parse.TryGetProperty("wikitext", out var wikitextElement) ||
-            !wikitextElement.TryGetProperty("*", out var textElement))
-        {
-            return Array.Empty<FirearmResult>();
-        }
-
-        var wikiText = textElement.GetString() ?? string.Empty;
-        var headings = WikiHeadingRegex().Matches(wikiText);
-        var results = new List<FirearmResult>();
-
-        foreach (Match heading in headings)
-        {
-            var name = CleanText(heading.Groups["name"].Value);
-            if (string.IsNullOrWhiteSpace(name) || IsNonFirearmSection(name))
-            {
-                continue;
-            }
-
-            var summary = ExtractSectionSummary(wikiText, heading);
-            results.Add(new FirearmResult(
-                name,
-                pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_')),
-                pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_')),
-                null,
-                summary,
-                summary,
-                pageUrl.ToString(),
-                Array.Empty<FirearmAppearance>()));
-        }
-
-        var distinctResults = results
+        var sections = await ReadWikiSectionsAsync(pageTitle, pageUrl, cancellationToken).ConfigureAwait(false);
+        return sections
+            .Select(section => new FirearmResult(
+                section.Name,
+                section.SourceUrl,
+                section.SourceUrl,
+                section.ImageUrl,
+                Truncate(section.Details ?? "Firearm listed on IMFDB.", 180),
+                section.Details,
+                section.SourceUrl,
+                Array.Empty<FirearmAppearance>()))
             .DistinctBy(static item => NormalizeTitle(item.Name))
             .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
-
-        return await EnrichFirearmDetailsAsync(distinctResults, cancellationToken).ConfigureAwait(false);
     }
 
     private static string? FindImfdbSourcePageUrl(string html)
@@ -288,51 +263,50 @@ public partial class ImfdbClient : IImfdbClient
         return sourcePageUrl + "#" + section;
     }
 
-    private async Task<IReadOnlyList<FirearmResult>> EnrichFirearmDetailsAsync(
+    private async Task<IReadOnlyList<FirearmResult>> EnrichFirearmsFromWikiSectionsAsync(
         IReadOnlyList<FirearmResult> firearms,
+        string? sourcePageUrl,
         CancellationToken cancellationToken)
     {
-        var enriched = new List<FirearmResult>(firearms.Count);
-        foreach (var firearm in firearms)
+        if (string.IsNullOrWhiteSpace(sourcePageUrl))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            enriched.Add(await EnrichFirearmDetailAsync(firearm, cancellationToken).ConfigureAwait(false));
+            return firearms;
         }
 
-        return enriched;
-    }
-
-    private async Task<FirearmResult> EnrichFirearmDetailAsync(FirearmResult firearm, CancellationToken cancellationToken)
-    {
         try
         {
-            var wikipediaTitles = await FindWikipediaTitlesAsync(firearm.Name, cancellationToken).ConfigureAwait(false);
-            foreach (var wikipediaTitle in wikipediaTitles)
+            var pageUrl = new Uri(sourcePageUrl);
+            var pageTitle = GetWikiPageTitle(pageUrl);
+            if (string.IsNullOrWhiteSpace(pageTitle))
             {
-                var summaryUri = new Uri(WikipediaSummaryBaseUri, Uri.EscapeDataString(wikipediaTitle.Replace(' ', '_')));
-                using var document = JsonDocument.Parse(await GetStringAsync(summaryUri, cancellationToken).ConfigureAwait(false));
-                var root = document.RootElement;
-
-                var imageUrl = TryGetString(root, "thumbnail", "source") ?? TryGetString(root, "originalimage", "source");
-                var details = TryGetString(root, "extract");
-                var description = TryGetString(root, "description");
-                var sourceUrl = TryGetString(root, "content_urls", "desktop", "page");
-
-                if ((string.IsNullOrWhiteSpace(imageUrl) && string.IsNullOrWhiteSpace(details)) ||
-                    !IsLikelyFirearmWikipediaMatch(firearm.Name, wikipediaTitle, description, details))
-                {
-                    continue;
-                }
-
-                return firearm with
-                {
-                    ImageUrl = imageUrl,
-                    Details = string.IsNullOrWhiteSpace(details) ? firearm.Details : details,
-                    DetailSourceUrl = string.IsNullOrWhiteSpace(sourceUrl) ? firearm.DetailSourceUrl : sourceUrl
-                };
+                return firearms;
             }
 
-            return firearm;
+            var sections = await ReadWikiSectionsAsync(pageTitle, pageUrl, cancellationToken).ConfigureAwait(false);
+            if (sections.Count == 0)
+            {
+                return firearms;
+            }
+
+            return firearms
+                .Select(firearm =>
+                {
+                    var section = FindBestSection(sections, firearm.Name);
+                    if (section is null)
+                    {
+                        return firearm;
+                    }
+
+                    return firearm with
+                    {
+                        SourceSectionUrl = section.SourceUrl ?? firearm.SourceSectionUrl,
+                        ImageUrl = section.ImageUrl ?? firearm.ImageUrl,
+                        Summary = string.IsNullOrWhiteSpace(section.Details) ? firearm.Summary : Truncate(section.Details, 180),
+                        Details = string.IsNullOrWhiteSpace(section.Details) ? firearm.Details : section.Details,
+                        DetailSourceUrl = section.SourceUrl ?? firearm.DetailSourceUrl
+                    };
+                })
+                .ToArray();
         }
         catch (OperationCanceledException)
         {
@@ -340,80 +314,103 @@ public partial class ImfdbClient : IImfdbClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Unable to enrich firearm details for {FirearmName}", firearm.Name);
-            return firearm;
+            _logger.LogDebug(ex, "Unable to enrich firearm details from IMFDB page {SourcePageUrl}", sourcePageUrl);
+            return firearms;
         }
     }
 
-    private static async Task<IReadOnlyList<string>> FindWikipediaTitlesAsync(string firearmName, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<WikiFirearmSection>> ReadWikiSectionsAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
     {
-        var searchUri = new Uri(WikipediaOpenSearchUri + $"?action=opensearch&search={Uri.EscapeDataString(firearmName)}&limit=5&namespace=0&format=json");
-        using var document = JsonDocument.Parse(await GetStringAsync(searchUri, cancellationToken).ConfigureAwait(false));
-        var root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Array ||
-            root.GetArrayLength() < 2 ||
-            root[1].ValueKind != JsonValueKind.Array ||
-            root[1].GetArrayLength() == 0)
+        var uri = new Uri(WikiApiUri + $"?action=parse&prop=wikitext&format=json&page={Uri.EscapeDataString(pageTitle)}");
+        using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
+        if (!document.RootElement.TryGetProperty("parse", out var parse) ||
+            !parse.TryGetProperty("wikitext", out var wikitextElement) ||
+            !wikitextElement.TryGetProperty("*", out var textElement))
         {
-            return Array.Empty<string>();
+            return Array.Empty<WikiFirearmSection>();
         }
 
-        return root[1]
-            .EnumerateArray()
-            .Select(static candidate => candidate.GetString())
-            .Where(static candidate => !string.IsNullOrWhiteSpace(candidate))
-            .Select(static candidate => candidate!)
-            .ToArray();
-    }
-
-    private static bool IsLikelyFirearmWikipediaMatch(string firearmName, string candidateTitle, string? description, string? details)
-    {
-        var context = string.Join(' ', description, details);
-        if (!FirearmContextRegex().IsMatch(context))
+        var wikiText = textElement.GetString() ?? string.Empty;
+        var headings = WikiHeadingRegex().Matches(wikiText);
+        var sections = new List<WikiFirearmSection>();
+        foreach (Match heading in headings)
         {
-            return false;
-        }
-
-        var normalizedFirearmName = NormalizeTitle(firearmName);
-        var normalizedCandidateTitle = NormalizeTitle(candidateTitle);
-        if (normalizedCandidateTitle.Equals(normalizedFirearmName, StringComparison.OrdinalIgnoreCase) ||
-            normalizedCandidateTitle.Contains(normalizedFirearmName, StringComparison.OrdinalIgnoreCase) ||
-            normalizedFirearmName.Contains(normalizedCandidateTitle, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        var candidateTokens = normalizedCandidateTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return normalizedFirearmName
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(static token => token.Length >= 3 || token.Any(char.IsDigit))
-            .Any(candidateTokens.Contains);
-    }
-
-    private static string? TryGetString(JsonElement element, params string[] path)
-    {
-        var current = element;
-        foreach (var segment in path)
-        {
-            if (current.ValueKind != JsonValueKind.Object ||
-                !current.TryGetProperty(segment, out current))
+            var name = CleanText(heading.Groups["name"].Value);
+            if (string.IsNullOrWhiteSpace(name) || IsNonFirearmSection(name))
             {
-                return null;
+                continue;
             }
+
+            var sectionText = ExtractSectionText(wikiText, heading);
+            var details = ExtractSectionDetails(sectionText);
+            var imageUrl = ExtractFirstImageUrl(sectionText);
+            var sourceUrl = pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_'));
+            sections.Add(new WikiFirearmSection(name, details, imageUrl, sourceUrl));
         }
 
-        return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
+        return sections;
     }
 
-    private static string ExtractSectionSummary(string wikitext, Match heading)
+    private static WikiFirearmSection? FindBestSection(IReadOnlyList<WikiFirearmSection> sections, string firearmName)
+    {
+        var normalizedFirearmName = NormalizeTitle(firearmName);
+        var exact = sections.FirstOrDefault(section => NormalizeTitle(section.Name).Equals(normalizedFirearmName, StringComparison.OrdinalIgnoreCase));
+        if (exact is not null)
+        {
+            return exact;
+        }
+
+        return sections.FirstOrDefault(section =>
+        {
+            var normalizedSectionName = NormalizeTitle(section.Name);
+            return normalizedSectionName.Contains(normalizedFirearmName, StringComparison.OrdinalIgnoreCase) ||
+                normalizedFirearmName.Contains(normalizedSectionName, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    private static string? GetWikiPageTitle(Uri pageUrl)
+    {
+        var pageTitle = pageUrl.Segments.LastOrDefault();
+        return string.IsNullOrWhiteSpace(pageTitle) ? null : WebUtility.UrlDecode(pageTitle).Replace('_', ' ');
+    }
+
+    private static string ExtractSectionText(string wikitext, Match heading)
     {
         var start = heading.Index + heading.Length;
         var next = WikiHeadingRegex().Match(wikitext, start);
         var length = next.Success ? next.Index - start : wikitext.Length - start;
-        var section = wikitext.Substring(start, Math.Min(length, 700));
+        return wikitext.Substring(start, length);
+    }
+
+    private static string? ExtractSectionDetails(string section)
+    {
+        var image = WikiFileRegex().Match(section);
+        if (image.Success)
+        {
+            section = section[..image.Index];
+        }
+
         section = WikiMarkupRegex().Replace(section, " ");
         section = CleanText(section);
-        return string.IsNullOrWhiteSpace(section) ? "Firearm listed on IMFDB." : Truncate(section, 180);
+        return string.IsNullOrWhiteSpace(section) ? null : Truncate(section, 700);
+    }
+
+    private static string? ExtractFirstImageUrl(string section)
+    {
+        var image = WikiFileRegex().Match(section);
+        if (!image.Success)
+        {
+            return null;
+        }
+
+        var fileName = WebUtility.HtmlDecode(image.Groups["file"].Value).Replace(' ', '_');
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        var hash = Convert.ToHexString(MD5.HashData(System.Text.Encoding.UTF8.GetBytes(fileName))).ToLowerInvariant();
+        return new Uri(WikiImageBaseUri, $"{hash[0]}/{hash[..2]}/{Uri.EscapeDataString(fileName)}").ToString();
     }
 
     private static int ScoreTitle(string candidate, string normalizedTitle, int? year, string context)
@@ -517,9 +514,11 @@ public partial class ImfdbClient : IImfdbClient
     [GeneratedRegex("\\s+")]
     private static partial Regex WhitespaceRegex();
 
-    [GeneratedRegex("\\b(firearm|gun|pistol|revolver|rifle|shotgun|carbine|handgun|derringer|submachine|machine gun|assault weapon|weapon|cartridge|ammunition|caliber|calibre|semi-automatic|automatic)\\b", RegexOptions.IgnoreCase)]
-    private static partial Regex FirearmContextRegex();
-
     [GeneratedRegex("\\[\\[(?:[^\\]|]+\\|)?([^\\]]+)\\]\\]|\\{\\{[^}]+\\}\\}|\\[https?://[^\\s]+\\s*([^\\]]*)\\]|'{2,}|={2,}|\\[\\[Image:[^\\]]+\\]\\]", RegexOptions.IgnoreCase)]
     private static partial Regex WikiMarkupRegex();
+
+    [GeneratedRegex("\\[\\[(?:File|Image):(?<file>[^\\]|]+)", RegexOptions.IgnoreCase)]
+    private static partial Regex WikiFileRegex();
+
+    private sealed record WikiFirearmSection(string Name, string? Details, string? ImageUrl, string? SourceUrl);
 }

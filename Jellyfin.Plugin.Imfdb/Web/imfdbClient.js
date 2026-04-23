@@ -247,7 +247,7 @@
             <h2>${escapeHtml(firearm.name)}</h2>
             ${firearm.imageUrl ? `<img class="imfdb-dialog-image" src="${escapeAttribute(firearm.imageUrl)}" alt="${escapeAttribute(firearm.name)}">` : ''}
             <p class="imfdb-dialog-summary">${escapeHtml(firearm.summary || 'Listed on IMFDB.')}</p>
-            <p class="imfdb-dialog-details">${escapeHtml(firearm.details || 'No additional firearm details were available from the indexed sources.')}</p>
+            <p class="imfdb-dialog-details">${escapeHtml(firearm.details || 'No additional firearm details were available from IMFDB.')}</p>
             <div class="imfdb-dialog-actions">
                 ${firearm.detailSourceUrl ? `<button type="button" class="imfdb-action imfdb-details-source">Details Source</button>` : ''}
                 ${imfdbUrl ? `<button type="button" class="imfdb-action imfdb-open">Open IMFDB</button>` : ''}
