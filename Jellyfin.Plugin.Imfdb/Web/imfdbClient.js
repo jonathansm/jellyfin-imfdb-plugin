@@ -47,7 +47,8 @@
             return client.ajax({
                 type: 'GET',
                 url: url,
-                dataType: 'json'
+                dataType: 'json',
+                headers: getAuthHeaders()
             });
         }
 
@@ -393,6 +394,12 @@
             }
         } catch (error) {
             console.warn(error);
+            if (requestId === activeRequest && itemId === lastItemId) {
+                lastItemId = null;
+                pendingItemId = itemId;
+                lastResult = null;
+            }
+
             row.remove();
         }
     }

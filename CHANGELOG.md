@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3.3
+
+- Sends Jellyfin auth headers on plugin lookup requests.
+- Retries lookups after transient request failures instead of treating the item as handled.
+
 ## 0.1.3.2
 
 - Applies MediaWiki-style file title capitalization before building image URLs.

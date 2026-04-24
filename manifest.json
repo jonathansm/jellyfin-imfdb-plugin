@@ -8,6 +8,14 @@
     "category": "Metadata",
     "versions": [
       {
+        "version": "0.1.3.3",
+        "changelog": "Sends Jellyfin auth headers on plugin lookup requests and retries lookups after transient request failures.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.3.3/jellyfin-plugin-imfdb_0.1.3.3.zip",
+        "checksum": "e664855120977d564101b950c017a222",
+        "timestamp": "2026-04-24T00:00:00Z"
+      },
+      {
         "version": "0.1.3.2",
         "changelog": "Applies MediaWiki-style file title capitalization before building image URLs.",
         "targetAbi": "10.11.0.0",
