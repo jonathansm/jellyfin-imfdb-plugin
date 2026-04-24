@@ -42,15 +42,59 @@ public partial class ImfdbClient : IImfdbClient
 
         try
         {
+            _logger.LogInformation("IMFDB lookup started for {Title} ({Year})", title, year);
             var wikiMatches = await FindWikiMatchesAsync(title, year, cancellationToken).ConfigureAwait(false);
+            if (wikiMatches.Count == 0)
+            {
+                _logger.LogInformation("IMFDB lookup found no wiki candidates for {Title} ({Year})", title, year);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "IMFDB lookup candidates for {Title} ({Year}): {Candidates}",
+                    title,
+                    year,
+                    string.Join(", ", wikiMatches.Select(static match => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{match.Title} ({match.Score})"))));
+            }
+
             foreach (var wikiMatch in wikiMatches)
             {
-                var firearms = await ReadWikiPageAsync(wikiMatch.Title, wikiMatch.Url, cancellationToken).ConfigureAwait(false);
-                if (firearms.Count > 0)
+                try
                 {
-                    return (wikiMatch.Title, wikiMatch.Url.ToString(), firearms);
+                    var firearms = await ReadWikiPageAsync(wikiMatch.Title, wikiMatch.Url, cancellationToken).ConfigureAwait(false);
+                    if (firearms.Count > 0)
+                    {
+                        _logger.LogInformation(
+                            "IMFDB lookup matched {Title} ({Year}) to {WikiTitle} with {FirearmCount} firearm sections",
+                            title,
+                            year,
+                            wikiMatch.Title,
+                            firearms.Count);
+                        return (wikiMatch.Title, wikiMatch.Url.ToString(), firearms);
+                    }
+
+                    _logger.LogDebug(
+                        "IMFDB lookup candidate {WikiTitle} returned no firearm sections for {Title} ({Year})",
+                        wikiMatch.Title,
+                        title,
+                        year);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "IMFDB lookup candidate {WikiTitle} failed for {Title} ({Year})",
+                        wikiMatch.Title,
+                        title,
+                        year);
                 }
             }
+
+            _logger.LogInformation("IMFDB lookup found no firearm sections for {Title} ({Year}) after checking {CandidateCount} wiki candidates", title, year, wikiMatches.Count);
         }
         catch (OperationCanceledException)
         {
@@ -74,7 +118,7 @@ public partial class ImfdbClient : IImfdbClient
         return client;
     }
 
-    private static async Task<IReadOnlyList<WikiPageMatch>> FindWikiMatchesAsync(string title, int? year, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<WikiPageMatch>> FindWikiMatchesAsync(string title, int? year, CancellationToken cancellationToken)
     {
         var normalizedTitle = NormalizeTitle(title);
         var searches = year.HasValue
@@ -90,6 +134,7 @@ public partial class ImfdbClient : IImfdbClient
                 !query.TryGetProperty("search", out var searchResults) ||
                 searchResults.ValueKind != JsonValueKind.Array)
             {
+                _logger.LogDebug("IMFDB wiki search returned no usable result array for {Search}", search);
                 continue;
             }
 
@@ -119,6 +164,8 @@ public partial class ImfdbClient : IImfdbClient
                     matches[pageTitle] = new WikiPageMatch(pageTitle, GetWikiPageUrl(pageTitle), score);
                 }
             }
+
+            _logger.LogDebug("IMFDB wiki search {Search} produced {ResultCount} raw results and {CandidateCount} accepted candidates so far", search, rank, matches.Count);
         }
 
         return matches.Values
@@ -130,6 +177,7 @@ public partial class ImfdbClient : IImfdbClient
     private async Task<IReadOnlyList<FirearmResult>> ReadWikiPageAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
     {
         var sections = await ReadWikiSectionsAsync(pageTitle, pageUrl, cancellationToken).ConfigureAwait(false);
+        _logger.LogDebug("IMFDB parsed {SectionCount} firearm sections from {WikiTitle}", sections.Count, pageTitle);
         return sections
             .Select(section => new FirearmResult(
                 section.Name,

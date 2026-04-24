@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4.0
+
+- Adds server-side lookup logging for candidate selection, empty results, candidate failures, and successful matches.
+
 ## 0.1.3.4
 
 - Tries multiple IMFDB wiki search candidates before giving up on a lookup.
