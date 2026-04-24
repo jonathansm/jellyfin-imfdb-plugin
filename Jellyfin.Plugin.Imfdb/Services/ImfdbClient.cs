@@ -42,13 +42,13 @@ public partial class ImfdbClient : IImfdbClient
 
         try
         {
-            var wikiMatch = await FindWikiMatchAsync(title, year, cancellationToken).ConfigureAwait(false);
-            if (wikiMatch is not null)
+            var wikiMatches = await FindWikiMatchesAsync(title, year, cancellationToken).ConfigureAwait(false);
+            foreach (var wikiMatch in wikiMatches)
             {
-                var firearms = await ReadWikiPageAsync(wikiMatch.Value.Title, wikiMatch.Value.Url, cancellationToken).ConfigureAwait(false);
+                var firearms = await ReadWikiPageAsync(wikiMatch.Title, wikiMatch.Url, cancellationToken).ConfigureAwait(false);
                 if (firearms.Count > 0)
                 {
-                    return (wikiMatch.Value.Title, wikiMatch.Value.Url.ToString(), firearms);
+                    return (wikiMatch.Title, wikiMatch.Url.ToString(), firearms);
                 }
             }
         }
@@ -74,45 +74,57 @@ public partial class ImfdbClient : IImfdbClient
         return client;
     }
 
-    private static async Task<(string Title, Uri Url)?> FindWikiMatchAsync(string title, int? year, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<WikiPageMatch>> FindWikiMatchesAsync(string title, int? year, CancellationToken cancellationToken)
     {
         var normalizedTitle = NormalizeTitle(title);
-        var uri = new Uri(WikiApiUri + $"?action=query&list=search&format=json&srlimit=10&srsearch={Uri.EscapeDataString(title)}");
-        using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
-        if (!document.RootElement.TryGetProperty("query", out var query) ||
-            !query.TryGetProperty("search", out var searchResults) ||
-            searchResults.ValueKind != JsonValueKind.Array)
-        {
-            return null;
-        }
+        var searches = year.HasValue
+            ? new[] { title, string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{title} {year.Value}") }
+            : new[] { title };
+        var matches = new Dictionary<string, WikiPageMatch>(StringComparer.OrdinalIgnoreCase);
 
-        (string Title, Uri Url, int Score)? best = null;
-        foreach (var result in searchResults.EnumerateArray())
+        foreach (var search in searches)
         {
-            var pageTitle = result.TryGetProperty("title", out var titleElement)
-                ? titleElement.GetString()
-                : null;
-            if (string.IsNullOrWhiteSpace(pageTitle))
+            var uri = new Uri(WikiApiUri + $"?action=query&list=search&format=json&srlimit=10&srsearch={Uri.EscapeDataString(search)}");
+            using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
+            if (!document.RootElement.TryGetProperty("query", out var query) ||
+                !query.TryGetProperty("search", out var searchResults) ||
+                searchResults.ValueKind != JsonValueKind.Array)
             {
                 continue;
             }
 
-            var snippet = result.TryGetProperty("snippet", out var snippetElement)
-                ? CleanText(snippetElement.GetString() ?? string.Empty)
-                : string.Empty;
-            var score = ScoreTitle(pageTitle, normalizedTitle, year, snippet);
-            if (score <= 0)
+            var rank = 0;
+            foreach (var result in searchResults.EnumerateArray())
             {
-                continue;
-            }
+                var pageTitle = result.TryGetProperty("title", out var titleElement)
+                    ? titleElement.GetString()
+                    : null;
+                if (string.IsNullOrWhiteSpace(pageTitle))
+                {
+                    continue;
+                }
 
-            if (best is null || score > best.Value.Score)
-            {
-                best = (pageTitle, GetWikiPageUrl(pageTitle), score);
+                var snippet = result.TryGetProperty("snippet", out var snippetElement)
+                    ? CleanText(snippetElement.GetString() ?? string.Empty)
+                    : string.Empty;
+                var score = ScoreTitle(pageTitle, normalizedTitle, year, snippet) - rank;
+                rank++;
+                if (score <= 0)
+                {
+                    continue;
+                }
+
+                if (!matches.TryGetValue(pageTitle, out var existing) || score > existing.Score)
+                {
+                    matches[pageTitle] = new WikiPageMatch(pageTitle, GetWikiPageUrl(pageTitle), score);
+                }
             }
         }
 
-        return best is null ? null : (best.Value.Title, best.Value.Url);
+        return matches.Values
+            .OrderByDescending(static match => match.Score)
+            .Take(6)
+            .ToArray();
     }
 
     private async Task<IReadOnlyList<FirearmResult>> ReadWikiPageAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
@@ -132,7 +144,7 @@ public partial class ImfdbClient : IImfdbClient
 
     private static async Task<IReadOnlyList<WikiFirearmSection>> ReadWikiSectionsAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
     {
-        var uri = new Uri(WikiApiUri + $"?action=parse&prop=wikitext&format=json&page={Uri.EscapeDataString(pageTitle)}");
+        var uri = new Uri(WikiApiUri + $"?action=parse&prop=wikitext&format=json&redirects=true&page={Uri.EscapeDataString(pageTitle)}");
         using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
         if (!document.RootElement.TryGetProperty("parse", out var parse) ||
             !parse.TryGetProperty("wikitext", out var wikitextElement) ||
@@ -155,6 +167,11 @@ public partial class ImfdbClient : IImfdbClient
             var sectionText = ExtractSectionText(wikiText, heading);
             var details = ExtractSectionDetails(sectionText);
             var image = ExtractFirstImage(sectionText);
+            if (details is null && image is null)
+            {
+                continue;
+            }
+
             var sourceUrl = pageUrl + "#" + Uri.EscapeDataString(name.Replace(' ', '_'));
             sections.Add(new WikiFirearmSection(name, details, image?.ImageUrl, image?.Caption, sourceUrl));
         }
@@ -417,6 +434,8 @@ public partial class ImfdbClient : IImfdbClient
 
     [GeneratedRegex("^(?:File|Image):", RegexOptions.IgnoreCase)]
     private static partial Regex WikiFilePrefixRegex();
+
+    private sealed record WikiPageMatch(string Title, Uri Url, int Score);
 
     private sealed record WikiFirearmSection(string Name, string? Details, string? ImageUrl, string? Caption, string? SourceUrl);
 

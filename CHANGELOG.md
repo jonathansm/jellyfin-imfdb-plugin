@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3.4
+
+- Tries multiple IMFDB wiki search candidates before giving up on a lookup.
+- Searches title plus production year to avoid redirect and disambiguation pages.
+- Skips empty wiki category headings when building firearm cards.
+
 ## 0.1.3.3
 
 - Sends Jellyfin auth headers on plugin lookup requests.
