@@ -8,6 +8,14 @@
     "category": "Metadata",
     "versions": [
       {
+        "version": "0.1.3.4",
+        "changelog": "Keeps the firearm row attached across Jellyfin Web detail page re-renders.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.1.3.4/jellyfin-plugin-imfdb_0.1.3.4.zip",
+        "checksum": "a02c66dbe92ae34b050bb39805abc9e1",
+        "timestamp": "2026-04-24T00:00:00Z"
+      },
+      {
         "version": "0.1.3.3",
         "changelog": "Sends Jellyfin auth headers on plugin lookup requests and retries lookups after transient request failures.",
         "targetAbi": "10.11.0.0",
