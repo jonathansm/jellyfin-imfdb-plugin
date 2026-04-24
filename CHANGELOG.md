@@ -1,9 +1,5 @@
 # Changelog
 
-## 0.1.3.4
-
-- Keeps the firearm row attached across Jellyfin Web detail page re-renders.
-
 ## 0.1.3.3
 
 - Sends Jellyfin auth headers on plugin lookup requests.

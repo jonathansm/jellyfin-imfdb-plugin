@@ -9,7 +9,6 @@
     let scheduledUpdate = null;
     let lastLocation = window.location.href;
     let lastResult = null;
-    let rowElement = null;
 
     function apiClient() {
         return window.ApiClient ||
@@ -210,11 +209,7 @@
         document.head.appendChild(style);
     }
 
-    function findDetailsContainer() {
-        return document.querySelector('.detailPageContent, .itemDetailPage, .pageTabContent, .page, main') || document.body;
-    }
-
-    function findInsertionAnchor() {
+    function findPeopleAnchor() {
         const peopleSection = document.querySelector('.peopleSection, .itemPeople, .detailSectionContent.people');
         if (peopleSection) {
             return peopleSection.closest('section, .verticalSection, .detailSection, div') || peopleSection;
@@ -222,11 +217,7 @@
 
         const headings = Array.from(document.querySelectorAll('h2, .sectionTitle'));
         const peopleHeading = headings.find((heading) => /cast|people|actors/i.test(heading.textContent || ''));
-        if (peopleHeading) {
-            return peopleHeading.closest('section, .verticalSection, .detailSection, div') || peopleHeading;
-        }
-
-        return document.querySelector('.seriesTimerScheduleSection, .detailSection, .verticalSection, .itemTags') || findDetailsContainer();
+        return peopleHeading ? peopleHeading.closest('section, .verticalSection, .detailSection, div') || peopleHeading : null;
     }
 
     function removeExistingRow() {
@@ -234,38 +225,15 @@
         if (existingRow) {
             existingRow.remove();
         }
-
-        rowElement = null;
     }
 
-    function ensureRowAttached() {
-        if (!rowElement) {
-            rowElement = document.getElementById(rowId);
-            if (!rowElement) {
-                rowElement = document.createElement('section');
-                rowElement.id = rowId;
-                rowElement.className = 'verticalSection imfdb-section';
-            }
-        }
-
-        if (rowElement.isConnected) {
-            return rowElement;
-        }
-
-        const anchor = findInsertionAnchor();
-        if (anchor && anchor !== document.body && anchor.parentElement) {
-            anchor.insertAdjacentElement('afterend', rowElement);
-        } else {
-            findDetailsContainer().appendChild(rowElement);
-        }
-
-        return rowElement;
-    }
-
-    function renderLoading() {
-        const row = ensureRowAttached();
+    function renderLoading(anchor) {
+        removeExistingRow();
+        const row = document.createElement('section');
+        row.id = rowId;
         row.className = 'verticalSection imfdb-section';
         row.innerHTML = '<h2 class="sectionTitle">Firearms</h2><div is="emby-scroller" class="imfdb-scroller"><div is="emby-itemscontainer" class="itemsContainer scrollSlider imfdb-scroll"><div class="card overflowBackdropCard imfdb-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-backdrop"></div><div class="cardContent cardContent-shadow cardImageContainer chapterCardImageContainer"><span class="imfdb-placeholder">Searching IMFDB...</span></div></div><div class="cardFooter cardFooter-transparent"><div class="cardText cardTextCentered">&nbsp;</div></div></div></div></div></div>';
+        anchor.insertAdjacentElement('afterend', row);
         return row;
     }
 
@@ -386,10 +354,16 @@
             return;
         }
 
+        const anchor = findPeopleAnchor();
+        if (!anchor) {
+            pendingItemId = itemId;
+            return;
+        }
+
         if (itemId === lastItemId && !pendingItemId) {
-            if (lastResult && lastResult.firearms && lastResult.firearms.length) {
+            if (!document.getElementById(rowId) && lastResult && lastResult.firearms && lastResult.firearms.length) {
                 ensureStyle();
-                renderResults(ensureRowAttached(), lastResult);
+                renderResults(renderLoading(anchor), lastResult);
             }
 
             return;
@@ -400,7 +374,7 @@
         lastResult = null;
         const requestId = ++activeRequest;
         ensureStyle();
-        const row = renderLoading();
+        const row = renderLoading(anchor);
 
         try {
             const result = await lookupFirearms(itemId);
@@ -408,11 +382,12 @@
                 const normalizedResult = normalizeResult(result);
                 lastResult = normalizedResult;
                 if (!row.isConnected) {
-                    if (itemId !== getItemId()) {
+                    const currentAnchor = findPeopleAnchor();
+                    if (!currentAnchor || itemId !== getItemId()) {
                         return;
                     }
 
-                    ensureRowAttached();
+                    currentAnchor.insertAdjacentElement('afterend', row);
                 }
 
                 renderResults(row, normalizedResult);
