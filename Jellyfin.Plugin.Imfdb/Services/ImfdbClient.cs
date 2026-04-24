@@ -232,6 +232,7 @@ public partial class ImfdbClient : IImfdbClient
     private static string NormalizeWikiFileName(string value)
     {
         var builder = new System.Text.StringBuilder(value.Length);
+        var isFirstCharacter = true;
         foreach (var character in value.Trim())
         {
             var category = CharUnicodeInfo.GetUnicodeCategory(character);
@@ -240,7 +241,9 @@ public partial class ImfdbClient : IImfdbClient
                 continue;
             }
 
-            builder.Append(character == ' ' ? '_' : character);
+            var normalizedCharacter = character == ' ' ? '_' : character;
+            builder.Append(isFirstCharacter ? char.ToUpperInvariant(normalizedCharacter) : normalizedCharacter);
+            isFirstCharacter = false;
         }
 
         return builder.ToString();

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3.2
+
+- Applies MediaWiki-style file title capitalization before building image URLs.
+
 ## 0.1.3.1
 
 - Re-inserts the firearm row after Jellyfin Web re-renders detail sections.
