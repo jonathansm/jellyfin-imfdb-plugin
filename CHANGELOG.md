@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3.0
+
+- Searches IMFDB directly through the wiki API instead of using IMFDB Browser.
+- Replaces placeholder repository manifest checksums with published release checksums.
+- Removes unused IMDb id lookup input because IMFDB does not expose reliable IMDb ids.
+
 ## 0.1.2.0
 
 - Uses IMFDB wiki search to identify the matching IMFDB title page.

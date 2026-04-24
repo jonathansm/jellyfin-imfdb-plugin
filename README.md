@@ -97,14 +97,14 @@ dotnet publish Jellyfin.Plugin.Imfdb.sln -c Release
 Package a release zip:
 
 ```bash
-./scripts/package-plugin.sh 0.1.2.0
+./scripts/package-plugin.sh 0.1.3.0
 ```
 
 The package script creates:
 
 ```text
-artifacts/jellyfin-plugin-imfdb_0.1.2.0.zip
-artifacts/jellyfin-plugin-imfdb_0.1.2.0.zip.md5
+artifacts/jellyfin-plugin-imfdb_0.1.3.0.zip
+artifacts/jellyfin-plugin-imfdb_0.1.3.0.zip.md5
 ```
 
 ## License
