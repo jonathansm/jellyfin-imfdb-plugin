@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -216,7 +217,7 @@ public partial class ImfdbClient : IImfdbClient
             return null;
         }
 
-        var fileName = WikiFilePrefixRegex().Replace(fields[0], string.Empty).Trim().Replace(' ', '_');
+        var fileName = NormalizeWikiFileName(WikiFilePrefixRegex().Replace(fields[0], string.Empty));
         if (string.IsNullOrWhiteSpace(fileName))
         {
             return null;
@@ -226,6 +227,23 @@ public partial class ImfdbClient : IImfdbClient
         var imageUrl = new Uri(WikiImageBaseUri, $"{hash[0]}/{hash[..2]}/{Uri.EscapeDataString(fileName)}").ToString();
         var caption = fields.Count > 1 ? CleanWikiText(fields[^1]) : null;
         return new WikiImage(imageUrl, string.IsNullOrWhiteSpace(caption) ? null : caption);
+    }
+
+    private static string NormalizeWikiFileName(string value)
+    {
+        var builder = new System.Text.StringBuilder(value.Length);
+        foreach (var character in value.Trim())
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.Surrogate)
+            {
+                continue;
+            }
+
+            builder.Append(character == ' ' ? '_' : character);
+        }
+
+        return builder.ToString();
     }
 
     private static string? ExtractFirstFileMarkup(string section)

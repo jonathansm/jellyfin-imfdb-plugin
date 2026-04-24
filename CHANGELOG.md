@@ -5,6 +5,8 @@
 - Searches IMFDB directly through the wiki API instead of using IMFDB Browser.
 - Replaces placeholder repository manifest checksums with published release checksums.
 - Removes unused IMDb id lookup input because IMFDB does not expose reliable IMDb ids.
+- Re-inserts the firearm row after Jellyfin Web re-renders detail sections.
+- Strips invisible MediaWiki filename characters before building image URLs.
 
 ## 0.1.2.0
 

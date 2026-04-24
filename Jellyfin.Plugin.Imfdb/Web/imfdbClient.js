@@ -8,6 +8,7 @@
     let activeRequest = 0;
     let scheduledUpdate = null;
     let lastLocation = window.location.href;
+    let lastResult = null;
 
     function apiClient() {
         return window.ApiClient ||
@@ -346,6 +347,7 @@
         if (!itemId) {
             lastItemId = null;
             pendingItemId = null;
+            lastResult = null;
             activeRequest++;
             removeExistingRow();
             return;
@@ -358,11 +360,17 @@
         }
 
         if (itemId === lastItemId && !pendingItemId) {
+            if (!document.getElementById(rowId) && lastResult && lastResult.firearms && lastResult.firearms.length) {
+                ensureStyle();
+                renderResults(renderLoading(anchor), lastResult);
+            }
+
             return;
         }
 
         pendingItemId = null;
         lastItemId = itemId;
+        lastResult = null;
         const requestId = ++activeRequest;
         ensureStyle();
         const row = renderLoading(anchor);
@@ -370,7 +378,18 @@
         try {
             const result = await lookupFirearms(itemId);
             if (requestId === activeRequest) {
-                renderResults(row, normalizeResult(result));
+                const normalizedResult = normalizeResult(result);
+                lastResult = normalizedResult;
+                if (!row.isConnected) {
+                    const currentAnchor = findPeopleAnchor();
+                    if (!currentAnchor || itemId !== getItemId()) {
+                        return;
+                    }
+
+                    currentAnchor.insertAdjacentElement('afterend', row);
+                }
+
+                renderResults(row, normalizedResult);
             }
         } catch (error) {
             console.warn(error);
@@ -410,6 +429,7 @@
             lastLocation = window.location.href;
             lastItemId = null;
             pendingItemId = null;
+            lastResult = null;
             activeRequest++;
             removeExistingRow();
         }
