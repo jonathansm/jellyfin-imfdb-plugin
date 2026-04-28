@@ -15,6 +15,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<IImfdbClient, ImfdbClient>();
+        serviceCollection.AddSingleton<IImfdbCacheService, ImfdbCacheService>();
         serviceCollection.AddHostedService<FileTransformationRegistrationService>();
     }
 }

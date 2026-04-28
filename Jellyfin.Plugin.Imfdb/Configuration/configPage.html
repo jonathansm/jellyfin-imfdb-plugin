@@ -24,6 +24,17 @@
                             <span>Enable Jellyfin Web firearm row injection</span>
                         </label>
                     </div>
+                    <div class="inputContainer">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="EnableCaching" />
+                            <span>Cache IMFDB results in media folders</span>
+                        </label>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="CacheRefreshIntervalHours">Refresh cached results after</label>
+                        <input is="emby-input" type="number" id="CacheRefreshIntervalHours" min="0" step="1" />
+                        <div class="fieldDescription">Hours. Use 0 to refresh every time cached results are shown.</div>
+                    </div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
                     </button>
@@ -40,6 +51,8 @@
                         ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                             document.querySelector('#EnableLookups').checked = config.EnableLookups !== false;
                             document.querySelector('#EnableWebUiInjection').checked = config.EnableWebUiInjection !== false;
+                            document.querySelector('#EnableCaching').checked = config.EnableCaching !== false;
+                            document.querySelector('#CacheRefreshIntervalHours').value = Number.isFinite(config.CacheRefreshIntervalHours) ? config.CacheRefreshIntervalHours : 24;
                             Dashboard.hideLoadingMsg();
                         });
                     });
@@ -51,6 +64,8 @@
                         ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                             config.EnableLookups = document.querySelector('#EnableLookups').checked;
                             config.EnableWebUiInjection = document.querySelector('#EnableWebUiInjection').checked;
+                            config.EnableCaching = document.querySelector('#EnableCaching').checked;
+                            config.CacheRefreshIntervalHours = Math.max(0, parseInt(document.querySelector('#CacheRefreshIntervalHours').value, 10) || 0);
                             ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
                         });
                     });

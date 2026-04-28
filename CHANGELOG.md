@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0.0
+
+- Adds optional on-demand IMFDB result caching, enabled by default.
+- Caches IMFDB metadata and images in a media-adjacent `firearms` folder with a `.ignore` marker.
+- Loads cached firearm cards before refreshing stale cached results in the background.
+- Adds cache diagnostics to `/Imfdb/Status` and logs whether lookups are served from cache or live IMFDB data.
+- Improves first-load card rendering and lookup retry behavior in Jellyfin Web.
+- Improves title matching for disambiguated IMFDB pages such as `Homefront`.
+
 ## 0.1.4.0
 
 - Adds server-side lookup logging for candidate selection, empty results, candidate failures, and successful matches.

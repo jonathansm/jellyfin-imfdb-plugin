@@ -11,6 +11,9 @@ namespace Jellyfin.Plugin.Imfdb.Models;
 /// <param name="SourceUrl">Matched source URL.</param>
 /// <param name="ImfdbUrl">Matched title's main IMFDB wiki URL.</param>
 /// <param name="Firearms">Grouped firearm results.</param>
+/// <param name="IsCached">Whether the result was read from a local cache.</param>
+/// <param name="CachedAt">When the local cache was written, when available.</param>
+/// <param name="RefreshRecommended">Whether the client should refresh the cached result from IMFDB.</param>
 public sealed record ImfdbLookupResult(
     Guid ItemId,
     string? ImdbId,
@@ -19,4 +22,7 @@ public sealed record ImfdbLookupResult(
     string? SourceTitle,
     string? SourceUrl,
     string? ImfdbUrl,
-    IReadOnlyList<FirearmResult> Firearms);
+    IReadOnlyList<FirearmResult> Firearms,
+    bool IsCached = false,
+    DateTimeOffset? CachedAt = null,
+    bool RefreshRecommended = false);

@@ -17,10 +17,14 @@
                 : null);
     }
 
-    function getItemId() {
-        const text = window.location.href;
+    function getItemIdFromUrl(url) {
+        const text = url || '';
         const match = text.match(/[?&#]id=([a-f0-9-]{32,36})/i) || text.match(/\/details\/([a-f0-9-]{32,36})/i);
         return match ? match[1] : null;
+    }
+
+    function getItemId() {
+        return getItemIdFromUrl(window.location.href);
     }
 
     function getApiUrl(path) {
@@ -40,8 +44,8 @@
         return token ? { 'X-Emby-Token': token } : {};
     }
 
-    async function lookupFirearms(itemId) {
-        const url = getApiUrl('Imfdb/Lookup?itemId=' + encodeURIComponent(itemId));
+    async function lookupFirearms(itemId, refresh) {
+        const url = getApiUrl('Imfdb/Lookup?itemId=' + encodeURIComponent(itemId) + (refresh ? '&refresh=true' : ''));
         const client = apiClient();
         if (client && typeof client.ajax === 'function') {
             return client.ajax({
@@ -59,6 +63,21 @@
         }
 
         return response.json();
+    }
+
+    function withImageAuth(url) {
+        if (!url || !String(url).match(/^\/?Imfdb\/Image[?]/i)) {
+            return url;
+        }
+
+        const imageUrl = getApiUrl(String(url).replace(/^\/+/, ''));
+        const token = getAuthHeaders()['X-Emby-Token'];
+        if (!token) {
+            return imageUrl;
+        }
+
+        const separator = imageUrl.includes('?') ? '&' : '?';
+        return imageUrl + separator + 'api_key=' + encodeURIComponent(token);
     }
 
     function openExternalUrl(url) {
@@ -377,7 +396,7 @@
         const row = renderLoading(anchor);
 
         try {
-            const result = await lookupFirearms(itemId);
+            const result = await lookupFirearms(itemId, false);
             if (requestId === activeRequest) {
                 const normalizedResult = normalizeResult(result);
                 lastResult = normalizedResult;
@@ -391,6 +410,9 @@
                 }
 
                 renderResults(row, normalizedResult);
+                if (normalizedResult.isCached && normalizedResult.refreshRecommended) {
+                    refreshCachedResult(itemId, requestId, row);
+                }
             }
         } catch (error) {
             console.warn(error);
@@ -404,16 +426,43 @@
         }
     }
 
+    async function refreshCachedResult(itemId, requestId, row) {
+        try {
+            const result = await lookupFirearms(itemId, true);
+            if (requestId !== activeRequest || itemId !== getItemId()) {
+                return;
+            }
+
+            const normalizedResult = normalizeResult(result);
+            lastResult = normalizedResult;
+            if (!row.isConnected) {
+                const currentAnchor = findPeopleAnchor();
+                if (!currentAnchor) {
+                    return;
+                }
+
+                currentAnchor.insertAdjacentElement('afterend', row);
+            }
+
+            renderResults(row, normalizedResult);
+        } catch (error) {
+            console.warn(error);
+        }
+    }
+
     function normalizeResult(result) {
         const firearms = result.firearms || result.Firearms || [];
         return {
             sourceUrl: result.sourceUrl || result.SourceUrl,
             imfdbUrl: result.imfdbUrl || result.ImfdbUrl,
+            isCached: result.isCached || result.IsCached || false,
+            cachedAt: result.cachedAt || result.CachedAt,
+            refreshRecommended: result.refreshRecommended || result.RefreshRecommended || false,
             firearms: firearms.map((firearm) => ({
                 name: firearm.name || firearm.Name,
                 url: firearm.url || firearm.Url,
                 sourceSectionUrl: firearm.sourceSectionUrl || firearm.SourceSectionUrl,
-                imageUrl: firearm.imageUrl || firearm.ImageUrl,
+                imageUrl: withImageAuth(firearm.imageUrl || firearm.ImageUrl),
                 summary: firearm.summary || firearm.Summary,
                 details: firearm.details || firearm.Details
             }))
@@ -432,13 +481,19 @@
     }
 
     function handlePossibleNavigation() {
-        if (window.location.href !== lastLocation) {
-            lastLocation = window.location.href;
-            lastItemId = null;
-            pendingItemId = null;
-            lastResult = null;
-            activeRequest++;
-            removeExistingRow();
+        const currentLocation = window.location.href;
+        if (currentLocation !== lastLocation) {
+            const previousItemId = getItemIdFromUrl(lastLocation);
+            const currentItemId = getItemIdFromUrl(currentLocation);
+            lastLocation = currentLocation;
+
+            if (currentItemId !== previousItemId) {
+                lastItemId = null;
+                pendingItemId = null;
+                lastResult = null;
+                activeRequest++;
+                removeExistingRow();
+            }
         }
 
         scheduleUpdate();

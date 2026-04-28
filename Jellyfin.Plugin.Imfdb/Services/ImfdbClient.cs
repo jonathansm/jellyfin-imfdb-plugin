@@ -201,7 +201,15 @@ public partial class ImfdbClient : IImfdbClient
             return Array.Empty<WikiFirearmSection>();
         }
 
+        var resolvedTitle = parse.TryGetProperty("title", out var titleElement)
+            ? titleElement.GetString()
+            : pageTitle;
         var wikiText = textElement.GetString() ?? string.Empty;
+        if (IsDisambiguationPage(resolvedTitle, wikiText))
+        {
+            return Array.Empty<WikiFirearmSection>();
+        }
+
         var headings = WikiHeadingRegex().Matches(wikiText);
         var sections = new List<WikiFirearmSection>();
         foreach (Match heading in headings)
@@ -452,7 +460,13 @@ public partial class ImfdbClient : IImfdbClient
     private static bool IsNonFirearmSection(string name)
     {
         var normalized = NormalizeTitle(name);
-        return normalized is "contents" or "see also" or "external links" or "references" or "cast" or "film" or "television" or "weapons";
+        return normalized is "contents" or "see also" or "external links" or "references" or "cast" or "film" or "television" or "video games" or "weapons";
+    }
+
+    private static bool IsDisambiguationPage(string? title, string wikiText)
+    {
+        return (title?.EndsWith("(disambiguation)", StringComparison.OrdinalIgnoreCase) == true) ||
+            wikiText.Contains("[[Category:Disambiguation pages]]", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<string> GetStringAsync(Uri uri, CancellationToken cancellationToken)
