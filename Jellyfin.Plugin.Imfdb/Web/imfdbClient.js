@@ -17,10 +17,14 @@
                 : null);
     }
 
-    function getItemId() {
-        const text = window.location.href;
+    function getItemIdFromUrl(url) {
+        const text = url || '';
         const match = text.match(/[?&#]id=([a-f0-9-]{32,36})/i) || text.match(/\/details\/([a-f0-9-]{32,36})/i);
         return match ? match[1] : null;
+    }
+
+    function getItemId() {
+        return getItemIdFromUrl(window.location.href);
     }
 
     function getApiUrl(path) {
@@ -432,13 +436,19 @@
     }
 
     function handlePossibleNavigation() {
-        if (window.location.href !== lastLocation) {
-            lastLocation = window.location.href;
-            lastItemId = null;
-            pendingItemId = null;
-            lastResult = null;
-            activeRequest++;
-            removeExistingRow();
+        const currentLocation = window.location.href;
+        if (currentLocation !== lastLocation) {
+            const previousItemId = getItemIdFromUrl(lastLocation);
+            const currentItemId = getItemIdFromUrl(currentLocation);
+            lastLocation = currentLocation;
+
+            if (currentItemId !== previousItemId) {
+                lastItemId = null;
+                pendingItemId = null;
+                lastResult = null;
+                activeRequest++;
+                removeExistingRow();
+            }
         }
 
         scheduleUpdate();
