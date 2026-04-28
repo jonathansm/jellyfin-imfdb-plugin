@@ -13,6 +13,7 @@ Jellyfin IMFDB is a Jellyfin server plugin that looks up movies and series in IM
 - Adds a diagnostic API endpoint at `/Imfdb/Status`.
 - Adds a lookup API endpoint at `/Imfdb/Lookup?itemId=<jellyfin-item-guid>`.
 - Adds a dashboard configuration page for lookup and UI injection options.
+- Optionally caches IMFDB lookup results and images beside media files in a `firearms` folder.
 
 ## Important Limitations
 
@@ -28,6 +29,14 @@ That means this plugin can break if:
 - IMFDB detail/image URLs change, rate-limit, or stop returning matching data.
 
 If a title has no IMFDB entry, the firearms row should stay hidden. If an entry exists but no firearm image/details can be found, the card may still appear with limited information.
+
+## Caching
+
+IMFDB caching is enabled by default. On first view, the plugin returns live IMFDB results as soon as lookup completes, then writes `firearms/imfdb.json`, cached image files, and `firearms/.ignore` beside the media. Later views load cached cards first, then refresh from IMFDB only after the configured refresh interval has elapsed.
+
+For movies, the cache is written under the movie folder. For TV episodes and seasons, the plugin prefers the season folder so each season can keep its own IMFDB cache.
+
+The dashboard setting `Refresh cached results after` controls how often cached results are refreshed. Use `0` to refresh every time a cached result is served.
 
 ## Requirements
 
@@ -75,6 +84,8 @@ Expected fields:
 
 - `PluginEnabled`: IMFDB lookup is enabled.
 - `WebUiInjectionEnabled`: Jellyfin Web injection is enabled.
+- `CachingEnabled`: local IMFDB result and image caching is enabled.
+- `CacheRefreshIntervalHours`: cached-result refresh interval.
 - `FileTransformationRegistered`: the plugin successfully registered with File Transformation.
 - `FileTransformationStatus`: the most recent registration status.
 
@@ -97,14 +108,14 @@ dotnet publish Jellyfin.Plugin.Imfdb.sln -c Release
 Package a release zip:
 
 ```bash
-./scripts/package-plugin.sh 0.1.4.0
+./scripts/package-plugin.sh 0.2.0.0
 ```
 
 The package script creates:
 
 ```text
-artifacts/jellyfin-plugin-imfdb_0.1.4.0.zip
-artifacts/jellyfin-plugin-imfdb_0.1.4.0.zip.md5
+artifacts/jellyfin-plugin-imfdb_0.2.0.0.zip
+artifacts/jellyfin-plugin-imfdb_0.2.0.0.zip.md5
 ```
 
 ## License
