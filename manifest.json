@@ -8,12 +8,12 @@
     "category": "Metadata",
     "versions": [
       {
-        "version": "0.2.0.0",
-        "changelog": "Adds on-demand IMFDB result and image caching with media-adjacent firearms folders, cached-first loading, configurable refresh intervals, and improved lookup/card reliability.",
+        "version": "0.2.1.0",
+        "changelog": "Adds on-demand IMFDB caching in plugin-managed storage with movie and TV metadata folders, shared deduplicated image storage, cached-first loading, and configurable refresh intervals.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.2.0.0/jellyfin-plugin-imfdb_0.2.0.0.zip",
-        "checksum": "9e95591b4b080d73dcada388109f7371",
-        "timestamp": "2026-04-28T04:31:41Z"
+        "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.2.1.0/jellyfin-plugin-imfdb_0.2.1.0.zip",
+        "checksum": "559ad239c79439628cd929c2473392dd",
+        "timestamp": "2026-04-28T18:20:02Z"
       },
       {
         "version": "0.1.4.0",
