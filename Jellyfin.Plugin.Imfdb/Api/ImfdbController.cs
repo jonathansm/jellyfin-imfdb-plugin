@@ -74,7 +74,7 @@ public class ImfdbController : ControllerBase
             var cachedResult = await _cacheService.ReadAsync(item, cancellationToken).ConfigureAwait(false);
             if (cachedResult is not null)
             {
-                var refreshRecommended = IsCacheRefreshRecommended(cachedResult.CachedAt);
+                var refreshRecommended = cachedResult.RefreshRecommended || IsCacheRefreshRecommended(cachedResult.CachedAt);
                 cachedResult = cachedResult with
                 {
                     RefreshRecommended = refreshRecommended

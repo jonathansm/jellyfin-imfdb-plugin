@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.2.0.0
+## 0.2.1.0
 
 - Adds optional on-demand IMFDB result caching, enabled by default.
-- Caches IMFDB metadata and images in a media-adjacent `firearms` folder with a `.ignore` marker.
+- Caches IMFDB metadata in plugin-managed storage split by movies and TV items.
+- Stores IMFDB images in a shared hash-sharded plugin image cache to avoid duplicate downloads across titles.
 - Loads cached firearm cards before refreshing stale cached results in the background.
 - Adds cache diagnostics to `/Imfdb/Status` and logs whether lookups are served from cache or live IMFDB data.
 - Improves first-load card rendering and lookup retry behavior in Jellyfin Web.

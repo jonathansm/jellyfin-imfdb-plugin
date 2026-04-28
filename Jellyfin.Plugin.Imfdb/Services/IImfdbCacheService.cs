@@ -4,7 +4,7 @@ using MediaBrowser.Controller.Entities;
 namespace Jellyfin.Plugin.Imfdb.Services;
 
 /// <summary>
-/// Reads and writes IMFDB lookup caches beside media files.
+/// Reads and writes IMFDB lookup caches in plugin-managed storage.
 /// </summary>
 public interface IImfdbCacheService
 {
