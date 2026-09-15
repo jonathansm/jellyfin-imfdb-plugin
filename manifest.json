@@ -8,12 +8,20 @@
     "category": "Metadata",
     "versions": [
       {
+        "version": "0.3.0.0",
+        "changelog": "See the GitHub release notes for this version.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.3.0.0/jellyfin-plugin-imfdb_0.3.0.0.zip",
+        "checksum": "8d1f275323afddb6c321703d438b4073",
+        "timestamp": "2026-09-15T23:37:41Z"
+      },
+      {
         "version": "0.2.1.0",
         "changelog": "Adds on-demand IMFDB caching in plugin-managed storage with movie and TV metadata folders, shared deduplicated image storage, cached-first loading, and configurable refresh intervals.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/jonathansm/jellyfin-imfdb-plugin/releases/download/v0.2.1.0/jellyfin-plugin-imfdb_0.2.1.0.zip",
-        "checksum": "559ad239c79439628cd929c2473392dd",
-        "timestamp": "2026-04-28T18:20:02Z"
+        "checksum": "0ba70fb795e088d4bbd12d8e0b23a319",
+        "timestamp": "2026-04-28T00:00:00Z"
       },
       {
         "version": "0.1.4.0",
