@@ -19,14 +19,21 @@ public partial class ImfdbClient : IImfdbClient
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
     private readonly ILogger<ImfdbClient> _logger;
+    private readonly HttpClient _httpClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ImfdbClient"/> class.
     /// </summary>
     /// <param name="logger">Logger.</param>
     public ImfdbClient(ILogger<ImfdbClient> logger)
+        : this(logger, HttpClient)
+    {
+    }
+
+    internal ImfdbClient(ILogger<ImfdbClient> logger, HttpClient httpClient)
     {
         _logger = logger;
+        _httpClient = httpClient;
     }
 
     /// <inheritdoc />
@@ -57,6 +64,7 @@ public partial class ImfdbClient : IImfdbClient
                     string.Join(", ", wikiMatches.Select(static match => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{match.Title} ({match.Score})"))));
             }
 
+            Exception? candidateFailure = null;
             foreach (var wikiMatch in wikiMatches)
             {
                 try
@@ -85,6 +93,7 @@ public partial class ImfdbClient : IImfdbClient
                 }
                 catch (Exception ex)
                 {
+                    candidateFailure = ex;
                     _logger.LogWarning(
                         ex,
                         "IMFDB lookup candidate {WikiTitle} failed for {Title} ({Year})",
@@ -92,6 +101,11 @@ public partial class ImfdbClient : IImfdbClient
                         title,
                         year);
                 }
+            }
+
+            if (candidateFailure is not null)
+            {
+                throw new HttpRequestException("IMFDB candidates could not be read.", candidateFailure);
             }
 
             _logger.LogInformation("IMFDB lookup found no firearm sections for {Title} ({Year}) after checking {CandidateCount} wiki candidates", title, year, wikiMatches.Count);
@@ -103,6 +117,7 @@ public partial class ImfdbClient : IImfdbClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "IMFDB lookup failed for {Title}", title);
+            throw;
         }
 
         return (null, null, Array.Empty<FirearmResult>());
@@ -134,8 +149,7 @@ public partial class ImfdbClient : IImfdbClient
                 !query.TryGetProperty("search", out var searchResults) ||
                 searchResults.ValueKind != JsonValueKind.Array)
             {
-                _logger.LogDebug("IMFDB wiki search returned no usable result array for {Search}", search);
-                continue;
+                throw new HttpRequestException("IMFDB wiki search returned an invalid response.");
             }
 
             var rank = 0;
@@ -190,7 +204,7 @@ public partial class ImfdbClient : IImfdbClient
             .ToArray();
     }
 
-    private static async Task<IReadOnlyList<WikiFirearmSection>> ReadWikiSectionsAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<WikiFirearmSection>> ReadWikiSectionsAsync(string pageTitle, Uri pageUrl, CancellationToken cancellationToken)
     {
         var uri = new Uri(WikiApiUri + $"?action=parse&prop=wikitext&format=json&redirects=true&page={Uri.EscapeDataString(pageTitle)}");
         using var document = JsonDocument.Parse(await GetStringAsync(uri, cancellationToken).ConfigureAwait(false));
@@ -198,7 +212,7 @@ public partial class ImfdbClient : IImfdbClient
             !parse.TryGetProperty("wikitext", out var wikitextElement) ||
             !wikitextElement.TryGetProperty("*", out var textElement))
         {
-            return Array.Empty<WikiFirearmSection>();
+            throw new HttpRequestException("IMFDB page returned an invalid response.");
         }
 
         var resolvedTitle = parse.TryGetProperty("title", out var titleElement)
@@ -424,7 +438,12 @@ public partial class ImfdbClient : IImfdbClient
             score += 50;
         }
 
-        if (year.HasValue && context.Contains(year.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal))
+        if (score == 0)
+        {
+            return 0;
+        }
+
+        if (year.HasValue && (candidate + " " + context).Contains(year.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal))
         {
             score += 20;
         }
@@ -469,9 +488,9 @@ public partial class ImfdbClient : IImfdbClient
             wikiText.Contains("[[Category:Disambiguation pages]]", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task<string> GetStringAsync(Uri uri, CancellationToken cancellationToken)
+    private async Task<string> GetStringAsync(Uri uri, CancellationToken cancellationToken)
     {
-        using var response = await HttpClient.GetAsync(uri, cancellationToken).ConfigureAwait(false);
+        using var response = await _httpClient.GetAsync(uri, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -482,7 +501,7 @@ public partial class ImfdbClient : IImfdbClient
     [GeneratedRegex("<[^>]+>")]
     private static partial Regex HtmlTagRegex();
 
-    [GeneratedRegex("[^a-z0-9]+", RegexOptions.IgnoreCase)]
+    [GeneratedRegex("[^\\p{L}\\p{N}]+", RegexOptions.IgnoreCase)]
     private static partial Regex NonWordRegex();
 
     [GeneratedRegex("\\s+")]

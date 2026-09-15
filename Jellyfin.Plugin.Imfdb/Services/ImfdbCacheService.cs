@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Jellyfin.Plugin.Imfdb.Models;
@@ -21,8 +20,8 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
     private const string TvFolderName = "tv";
     private const string ImageFolderName = "images";
     private const int MaxConcurrentImageDownloads = 4;
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> CacheLocks = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> ImageLocks = new(StringComparer.Ordinal);
+    private static readonly SemaphoreSlim[] CacheLocks = CreateLocks();
+    private static readonly SemaphoreSlim[] ImageLocks = CreateLocks();
     private static readonly HttpClient HttpClient = CreateHttpClient();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -53,7 +52,8 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
         {
             await using var stream = File.OpenRead(cacheFilePath);
             var cache = await JsonSerializer.DeserializeAsync<CachedImfdbLookup>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
-            if (cache is null)
+            if (cache is null || cache.Version != 1 || cache.ItemId != item.Id || cache.Firearms is null ||
+                cache.QueryTitle != item.Name || cache.Year != item.ProductionYear)
             {
                 return null;
             }
@@ -84,7 +84,7 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
         var cacheFilePath = Path.Combine(cacheFolder, CacheFileName);
         try
         {
-            var cacheLock = CacheLocks.GetOrAdd(cacheFilePath, static _ => new SemaphoreSlim(1, 1));
+            var cacheLock = GetLock(CacheLocks, cacheFilePath);
             await cacheLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
@@ -123,7 +123,7 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
                 cacheLock.Release();
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or HttpRequestException)
         {
             _logger.LogWarning(ex, "Unable to write IMFDB cache for {ItemName}", item.Name);
             return result;
@@ -193,11 +193,16 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
         return imagePath;
     }
 
+    private static SemaphoreSlim[] CreateLocks() => Enumerable.Range(0, 64).Select(static _ => new SemaphoreSlim(1, 1)).ToArray();
+
+    private static SemaphoreSlim GetLock(SemaphoreSlim[] locks, string key) => locks[(uint)StringComparer.Ordinal.GetHashCode(key) % (uint)locks.Length];
+
     private static HttpClient CreateHttpClient()
     {
-        var client = new HttpClient
+        var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
         {
-            Timeout = TimeSpan.FromSeconds(20)
+            Timeout = TimeSpan.FromSeconds(20),
+            MaxResponseContentBufferSize = 20 * 1024 * 1024
         };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("Jellyfin.Plugin.Imfdb/0.1");
         return client;
@@ -252,7 +257,9 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
                 TvFolderName,
                 GetGuidKey(episode.SeriesId, episode.Id),
                 "seasons",
-                GetGuidKey(episode.SeasonId, episode.Id));
+                GetGuidKey(episode.SeasonId, episode.Id),
+                "episodes",
+                episode.Id.ToString("N"));
         }
 
         return Path.Combine("items", item.Id.ToString("N"));
@@ -312,13 +319,15 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
     {
         if (string.IsNullOrWhiteSpace(firearm.ImageUrl) ||
             !Uri.TryCreate(firearm.ImageUrl, UriKind.Absolute, out var imageUri) ||
-            imageUri.Scheme is not ("http" or "https"))
+            imageUri.Scheme != "https" ||
+            !string.Equals(imageUri.Host, "www.imfdb.org", StringComparison.OrdinalIgnoreCase) ||
+            !imageUri.IsDefaultPort || !imageUri.AbsolutePath.StartsWith("/images/", StringComparison.Ordinal))
         {
             return null;
         }
 
         var imageHash = Hash(imageUri.ToString());
-        var imageLock = ImageLocks.GetOrAdd(imageHash, static _ => new SemaphoreSlim(1, 1));
+        var imageLock = GetLock(ImageLocks, imageHash);
         await imageLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -358,7 +367,11 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
 
             return relativeImagePath;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or HttpRequestException or TaskCanceledException)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or HttpRequestException)
         {
             _logger.LogDebug(ex, "Unable to cache IMFDB image {ImageUrl}", firearm.ImageUrl);
             return null;
@@ -375,7 +388,7 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
         var firearms = cache.Firearms.Select(firearm =>
         {
             var cachedImageUrl = GetCachedImageUrlIfPresent(item.Id, firearm.CachedImageFileName);
-            if (!string.IsNullOrWhiteSpace(firearm.CachedImageFileName) && cachedImageUrl is null)
+            if (!string.IsNullOrWhiteSpace(firearm.OriginalImageUrl) && cachedImageUrl is null)
             {
                 refreshRecommended = true;
             }
@@ -442,7 +455,7 @@ public sealed partial class ImfdbCacheService : IImfdbCacheService
         {
             using var stream = File.OpenRead(cacheFilePath);
             var cache = JsonSerializer.Deserialize<CachedImfdbLookup>(stream, JsonOptions);
-            return cache?.Firearms.Any(firearm => string.Equals(
+            return cache?.Firearms?.Any(firearm => string.Equals(
                 firearm.CachedImageFileName,
                 relativeImagePath,
                 StringComparison.Ordinal)) == true;

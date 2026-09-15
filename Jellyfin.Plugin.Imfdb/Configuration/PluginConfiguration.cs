@@ -18,7 +18,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool EnableWebUiInjection { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether IMFDB lookup results should be cached next to media files.
+    /// Gets or sets a value indicating whether IMFDB lookup results should be cached in plugin-managed storage.
     /// </summary>
     public bool EnableCaching { get; set; } = true;
 

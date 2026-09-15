@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0.0
+
+- Target Jellyfin 12.0 and .NET 10; update build and release workflows.
+- Use supported Authorization headers and ApiKey image URLs.
+- Enforce library visibility for lookups and cached images; restrict diagnostics to administrators.
+- Fix episode cache collisions, metadata invalidation, missing-image refresh, and cancellation.
+- Avoid caching upstream failures as empty results and matching unrelated pages on year alone.
+- Bound cache lock storage and image download size; limit image fetches to IMFDB.
+- Use the visible Jellyfin 12 cast container, throttle DOM updates, and back off failed requests.
+- Await cache writes and track File Transformation registration through server shutdown.
+- Add server and browser regression tests to CI and release checks.
+
 ## 0.2.1.0
 
 - Adds optional on-demand IMFDB result caching, enabled by default.

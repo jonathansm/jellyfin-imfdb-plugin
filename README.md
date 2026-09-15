@@ -4,6 +4,12 @@
 
 Jellyfin IMFDB is a Jellyfin server plugin that looks up movies and series in IMFDB data and adds a firearm card row to Jellyfin Web by using the File Transformation plugin.
 
+## Version 0.3.0.0
+
+This version targets **Jellyfin 12 and .NET 10**. It updates authentication and web integration, enforces library permissions on lookup and image requests, and fixes cache handling and request retries. See [CHANGELOG.md](CHANGELOG.md) for details.
+
+Use a Jellyfin 12-compatible File Transformation build. Older IMFDB releases remain available for Jellyfin 10.11. Version 0.3.0.0 has passed automated tests; live installation checks are listed in [REVIEW.md](REVIEW.md).
+
 ## Features
 
 - Adds firearm cards to Jellyfin movie and series detail pages.
@@ -32,24 +38,26 @@ If a title has no IMFDB entry, the firearms row should stay hidden. If an entry 
 
 ## Caching
 
-IMFDB caching is enabled by default. On first view, the plugin returns live IMFDB results as soon as lookup completes, then writes lookup metadata and images under the plugin data folder. Later views load cached cards first, then refresh from IMFDB only after the configured refresh interval has elapsed.
+IMFDB caching is enabled by default. On first view, the plugin looks up IMFDB results and writes metadata and images under the plugin data folder before returning. Image downloads have a 20-second timeout and run up to four at a time for each lookup. Later views load cached cards first, then refresh from IMFDB only after the configured refresh interval has elapsed.
 
-Metadata is split under `cache/metadata/movies` and `cache/metadata/tv`. TV season and episode cache files are grouped under their series where Jellyfin provides those ids. Images are stored separately under `cache/images` by image URL hash, so the same IMFDB image reused by multiple titles is downloaded once.
+Movie and series metadata is stored under `cache/metadata/movies` and `cache/metadata/tv`, respectively. Images are stored separately under `cache/images` by image URL hash, so the same IMFDB image reused by multiple titles is downloaded once.
 
 The dashboard setting `Refresh cached results after` controls how often cached results are refreshed. Use `0` to refresh every time a cached result is served.
 
 ## Requirements
 
-- Jellyfin 10.11.x.
-- .NET 9 compatible Jellyfin plugin runtime.
+- Jellyfin 12.0 or later in the 12.x series (this build targets the 12.0 API).
+- .NET 10 compatible Jellyfin plugin runtime.
 - Jellyfin Web hosted by the Jellyfin server.
-- [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation).
+- A Jellyfin 12-compatible [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) build.
 
 Install File Transformation from its Jellyfin plugin repository:
 
 ```text
 https://www.iamparadox.dev/jellyfin/plugins/manifest.json
 ```
+
+Version 0.3.0.0 targets Jellyfin 12; older published versions remain for Jellyfin 10.11. The repository catalog will offer 0.3.0.0 after it is released. For local testing, build the package below and extract its contents into a new IMFDB directory under your Jellyfin plugins directory while the server is stopped. Replace the old IMFDB installation, start the server, and hard refresh the browser.
 
 ## Installation
 
@@ -74,7 +82,15 @@ If File Transformation is not installed or is not loaded, the `/Imfdb/Lookup` AP
 
 ## Troubleshooting
 
-Open this URL on your Jellyfin server:
+The status endpoint requires administrator authentication. From browser developer tools while signed in as an administrator, run:
+
+```javascript
+fetch(ApiClient.getUrl("Imfdb/Status"), {
+  headers: { Authorization: `MediaBrowser Token="${ApiClient.accessToken()}"` }
+}).then(response => response.json()).then(console.log);
+```
+
+Endpoint URL:
 
 ```text
 https://YOUR-JELLYFIN-SERVER/Imfdb/Status
@@ -99,6 +115,13 @@ If the row does not appear:
 
 ## Development
 
+Run regression tests (.NET 10 SDK and Node.js 22 or later):
+
+```bash
+dotnet test Jellyfin.Plugin.Imfdb.sln -c Release
+node --test tests/*.test.cjs
+```
+
 Build the plugin:
 
 ```bash
@@ -108,15 +131,19 @@ dotnet publish Jellyfin.Plugin.Imfdb.sln -c Release
 Package a release zip:
 
 ```bash
-./scripts/package-plugin.sh 0.2.1.0
+./scripts/package-plugin.sh 0.3.0.0
 ```
 
 The package script creates:
 
 ```text
-artifacts/jellyfin-plugin-imfdb_0.2.1.0.zip
-artifacts/jellyfin-plugin-imfdb_0.2.1.0.zip.md5
+artifacts/jellyfin-plugin-imfdb_0.3.0.0.zip
+artifacts/jellyfin-plugin-imfdb_0.3.0.0.zip.md5
 ```
+
+## Validation
+
+See [REVIEW.md](REVIEW.md) for review findings, fixes, and the remaining live-server checks. The web row uses the server-hosted Jellyfin Web detail page; independent native clients do not run this script. Lookup and image endpoints enforce the requesting user's library visibility. Only movie and series items are searched.
 
 ## License
 

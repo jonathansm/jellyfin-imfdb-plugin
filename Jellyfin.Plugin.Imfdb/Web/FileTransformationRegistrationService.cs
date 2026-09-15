@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.Imfdb.Web;
 /// <summary>
 /// Registers Jellyfin Web transformations with the File Transformation plugin.
 /// </summary>
-public class FileTransformationRegistrationService : IHostedService
+public class FileTransformationRegistrationService : BackgroundService
 {
     private static readonly Guid TransformationId = Guid.Parse("5c67db76-0120-4636-a557-6d74cdaac5a7");
     private static readonly string[] FileNamePatterns =
@@ -26,7 +26,6 @@ public class FileTransformationRegistrationService : IHostedService
     };
 
     private readonly ILogger<FileTransformationRegistrationService> _logger;
-    private CancellationTokenSource? _stoppingTokenSource;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FileTransformationRegistrationService"/> class.
@@ -48,19 +47,10 @@ public class FileTransformationRegistrationService : IHostedService
     public static string LastStatus { get; private set; } = "Not started.";
 
     /// <inheritdoc />
-    public Task StartAsync(CancellationToken cancellationToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _stoppingTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _ = RegisterWithRetryAsync(_stoppingTokenSource.Token);
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc />
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _stoppingTokenSource?.Cancel();
-        _stoppingTokenSource?.Dispose();
-        return Task.CompletedTask;
+        IsRegistered = false;
+        return RegisterWithRetryAsync(stoppingToken);
     }
 
     private async Task RegisterWithRetryAsync(CancellationToken cancellationToken)

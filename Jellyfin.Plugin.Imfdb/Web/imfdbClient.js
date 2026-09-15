@@ -9,6 +9,7 @@
     let scheduledUpdate = null;
     let lastLocation = window.location.href;
     let lastResult = null;
+    let retryAfter = 0;
 
     function apiClient() {
         return window.ApiClient ||
@@ -36,12 +37,16 @@
         return '/' + path.replace(/^\/+/, '');
     }
 
-    function getAuthHeaders() {
+    function getToken() {
         const client = apiClient();
-        const token = client && typeof client.accessToken === 'function'
+        return client && typeof client.accessToken === 'function'
             ? client.accessToken()
             : client && client._serverInfo ? client._serverInfo.AccessToken : null;
-        return token ? { 'X-Emby-Token': token } : {};
+    }
+
+    function getAuthHeaders() {
+        const token = getToken();
+        return token ? { Authorization: 'MediaBrowser Token="' + encodeURIComponent(token) + '"' } : {};
     }
 
     async function lookupFirearms(itemId, refresh) {
@@ -71,13 +76,13 @@
         }
 
         const imageUrl = getApiUrl(String(url).replace(/^\/+/, ''));
-        const token = getAuthHeaders()['X-Emby-Token'];
+        const token = getToken();
         if (!token) {
             return imageUrl;
         }
 
         const separator = imageUrl.includes('?') ? '&' : '?';
-        return imageUrl + separator + 'api_key=' + encodeURIComponent(token);
+        return imageUrl + separator + 'ApiKey=' + encodeURIComponent(token);
     }
 
     function openExternalUrl(url) {
@@ -86,6 +91,9 @@
         }
 
         const externalUrl = String(url);
+        if (!/^https?:\/\//i.test(externalUrl)) {
+            return;
+        }
 
         try {
             if (window.NativeInterface &&
@@ -143,6 +151,7 @@
             }
             #${rowId} .imfdb-scroll {
                 display: flex;
+                overflow-x: auto;
                 padding-bottom: .75em;
                 scroll-snap-type: x proximity;
                 scrollbar-width: none;
@@ -229,14 +238,14 @@
     }
 
     function findPeopleAnchor() {
-        const peopleSection = document.querySelector('.peopleSection, .itemPeople, .detailSectionContent.people');
-        if (peopleSection) {
-            return peopleSection.closest('section, .verticalSection, .detailSection, div') || peopleSection;
+        const pages = Array.from(document.querySelectorAll('.itemDetailPage'));
+        const page = pages.find((candidate) => !candidate.classList.contains('hide') && candidate.getClientRects().length);
+        if (!page) {
+            return null;
         }
 
-        const headings = Array.from(document.querySelectorAll('h2, .sectionTitle'));
-        const peopleHeading = headings.find((heading) => /cast|people|actors/i.test(heading.textContent || ''));
-        return peopleHeading ? peopleHeading.closest('section, .verticalSection, .detailSection, div') || peopleHeading : null;
+        // Jellyfin 12 keeps the cast container even when a title has no cast.
+        return page.querySelector('#castCollapsible, .peopleSection, .itemPeople, .detailSectionContent.people');
     }
 
     function removeExistingRow() {
@@ -373,6 +382,10 @@
             return;
         }
 
+        if (Date.now() < retryAfter) {
+            return;
+        }
+
         const anchor = findPeopleAnchor();
         if (!anchor) {
             pendingItemId = itemId;
@@ -397,7 +410,7 @@
 
         try {
             const result = await lookupFirearms(itemId, false);
-            if (requestId === activeRequest) {
+            if (requestId === activeRequest && itemId === getItemId()) {
                 const normalizedResult = normalizeResult(result);
                 lastResult = normalizedResult;
                 if (!row.isConnected) {
@@ -417,6 +430,7 @@
         } catch (error) {
             console.warn(error);
             if (requestId === activeRequest && itemId === lastItemId) {
+                retryAfter = Date.now() + 30000;
                 lastItemId = null;
                 pendingItemId = itemId;
                 lastResult = null;
@@ -471,7 +485,7 @@
 
     function scheduleUpdate() {
         if (scheduledUpdate) {
-            window.clearTimeout(scheduledUpdate);
+            return;
         }
 
         scheduledUpdate = window.setTimeout(function () {
@@ -488,6 +502,7 @@
             lastLocation = currentLocation;
 
             if (currentItemId !== previousItemId) {
+                retryAfter = 0;
                 lastItemId = null;
                 pendingItemId = null;
                 lastResult = null;

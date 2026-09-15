@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-0.2.1.0}"
+VERSION="${1:-0.3.0.0}"
 CONFIGURATION="${CONFIGURATION:-Release}"
 PROJECT="Jellyfin.Plugin.Imfdb/Jellyfin.Plugin.Imfdb.csproj"
-PUBLISH_DIR="Jellyfin.Plugin.Imfdb/bin/${CONFIGURATION}/net9.0/publish"
+PUBLISH_DIR="Jellyfin.Plugin.Imfdb/bin/${CONFIGURATION}/net10.0/publish"
 ARTIFACTS_DIR="artifacts"
 ZIP_NAME="jellyfin-plugin-imfdb_${VERSION}.zip"
 ROOT_DIR="$(pwd)"
 
-rm -rf "${ARTIFACTS_DIR}"
+[[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Expected a four-part numeric version" >&2; exit 1; }
 mkdir -p "${ARTIFACTS_DIR}"
+rm -f "${ARTIFACTS_DIR}/${ZIP_NAME}" "${ARTIFACTS_DIR}/${ZIP_NAME}.md5"
 
 dotnet publish "${PROJECT}" -c "${CONFIGURATION}" -p:Version="${VERSION}" -p:AssemblyVersion="${VERSION}" -p:FileVersion="${VERSION}"
 

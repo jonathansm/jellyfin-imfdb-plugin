@@ -17,13 +17,24 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: Restore
         run: dotnet restore Jellyfin.Plugin.Imfdb.sln
 
       - name: Build
         run: dotnet build Jellyfin.Plugin.Imfdb.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test Jellyfin.Plugin.Imfdb.sln -c Release --no-build
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test web client
+        run: node --test tests/*.test.cjs
 
       - name: Publish
         run: dotnet publish Jellyfin.Plugin.Imfdb.sln -c Release --no-build

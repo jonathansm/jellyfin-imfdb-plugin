@@ -3,6 +3,9 @@ using Jellyfin.Plugin.Imfdb.Models;
 using Jellyfin.Plugin.Imfdb.Services;
 using Jellyfin.Plugin.Imfdb.Web;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +22,7 @@ namespace Jellyfin.Plugin.Imfdb.Api;
 public class ImfdbController : ControllerBase
 {
     private readonly ILibraryManager _libraryManager;
+    private readonly IUserManager _userManager;
     private readonly IImfdbClient _imfdbClient;
     private readonly IImfdbCacheService _cacheService;
     private readonly ILogger<ImfdbController> _logger;
@@ -27,16 +31,19 @@ public class ImfdbController : ControllerBase
     /// Initializes a new instance of the <see cref="ImfdbController"/> class.
     /// </summary>
     /// <param name="libraryManager">Jellyfin library manager.</param>
+    /// <param name="userManager">Jellyfin user manager.</param>
     /// <param name="imfdbClient">IMFDB lookup client.</param>
     /// <param name="cacheService">IMFDB cache service.</param>
     /// <param name="logger">Logger.</param>
     public ImfdbController(
         ILibraryManager libraryManager,
+        IUserManager userManager,
         IImfdbClient imfdbClient,
         IImfdbCacheService cacheService,
         ILogger<ImfdbController> logger)
     {
         _libraryManager = libraryManager;
+        _userManager = userManager;
         _imfdbClient = imfdbClient;
         _cacheService = cacheService;
         _logger = logger;
@@ -62,10 +69,15 @@ public class ImfdbController : ControllerBase
             return Ok(new ImfdbLookupResult(itemId, null, string.Empty, null, null, null, null, Array.Empty<FirearmResult>()));
         }
 
-        var item = _libraryManager.GetItemById(itemId);
+        var item = GetVisibleItem(itemId);
         if (item is null)
         {
             return NotFound();
+        }
+
+        if (item is not (Movie or Series))
+        {
+            return Ok(new ImfdbLookupResult(itemId, null, item.Name, item.ProductionYear, null, null, null, Array.Empty<FirearmResult>()));
         }
 
         item.ProviderIds.TryGetValue("Imdb", out var imdbId);
@@ -100,9 +112,20 @@ public class ImfdbController : ControllerBase
             _logger.LogInformation("IMFDB cache disabled for {Title} ({Year})", item.Name, item.ProductionYear);
         }
 
-        var (sourceTitle, sourceUrl, firearms) = await _imfdbClient
-            .LookupAsync(item.Name, item.ProductionYear, cancellationToken)
-            .ConfigureAwait(false);
+        string? sourceTitle;
+        string? sourceUrl;
+        IReadOnlyList<FirearmResult> firearms;
+        try
+        {
+            (sourceTitle, sourceUrl, firearms) = await _imfdbClient
+                .LookupAsync(item.Name, item.ProductionYear, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException ||
+            (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested))
+        {
+            return StatusCode(StatusCodes.Status502BadGateway);
+        }
 
         var result = new ImfdbLookupResult(
             itemId,
@@ -119,23 +142,11 @@ public class ImfdbController : ControllerBase
         if (Plugin.Instance?.Configuration.EnableCaching != false)
         {
             _logger.LogInformation(
-                "IMFDB live lookup returned {FirearmCount} firearm sections for {Title} ({Year}); cache write queued",
+                "IMFDB live lookup returned {FirearmCount} firearm sections for {Title} ({Year}); writing cache",
                 result.Firearms.Count,
                 item.Name,
                 item.ProductionYear);
-            _ = Task.Run(
-                async () =>
-                {
-                    try
-                    {
-                        await _cacheService.WriteAsync(item, result, CancellationToken.None).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Unable to write IMFDB cache in the background for {ItemName}", item.Name);
-                    }
-                },
-                CancellationToken.None);
+            result = await _cacheService.WriteAsync(item, result, cancellationToken).ConfigureAwait(false);
         }
 
         return Ok(result);
@@ -152,7 +163,7 @@ public class ImfdbController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult Image([FromQuery] Guid itemId, [FromQuery] string fileName)
     {
-        var item = _libraryManager.GetItemById(itemId);
+        var item = GetVisibleItem(itemId);
         if (item is null)
         {
             return NotFound();
@@ -193,7 +204,7 @@ public class ImfdbController : ControllerBase
     /// </summary>
     /// <returns>Plugin diagnostics.</returns>
     [HttpGet("Status")]
-    [AllowAnonymous]
+    [Authorize(Roles = "Administrator")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult Status()
     {
@@ -206,6 +217,23 @@ public class ImfdbController : ControllerBase
             FileTransformationRegistered = FileTransformationRegistrationService.IsRegistered,
             FileTransformationStatus = FileTransformationRegistrationService.LastStatus
         });
+    }
+
+    private BaseItem? GetVisibleItem(Guid itemId)
+    {
+        // API keys have administrator privileges; ordinary sessions must resolve a user.
+        if (User.IsInRole("Administrator") && User.FindFirst("Jellyfin-IsApiKey")?.Value == "True")
+        {
+            return _libraryManager.GetItemById(itemId);
+        }
+
+        if (!Guid.TryParse(User.FindFirst("Jellyfin-UserId")?.Value, out var userId) ||
+            _userManager.GetUserById(userId) is not { } user)
+        {
+            return null;
+        }
+
+        return _libraryManager.GetItemById<BaseItem>(itemId, user);
     }
 
     private static bool IsCacheRefreshRecommended(DateTimeOffset? cachedAt)
